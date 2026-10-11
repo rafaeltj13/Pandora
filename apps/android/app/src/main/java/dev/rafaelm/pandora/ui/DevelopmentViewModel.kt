@@ -46,7 +46,6 @@ class DevelopmentViewModel(private val repository: DevelopmentRepository) : View
     private var loadJob: Job? = null
     private var editorJob: Job? = null
     private var accountEpoch = 0
-    init { refresh() }
     private fun update(block: (DevelopmentState) -> DevelopmentState) { mutable.value = block(mutable.value) }
     private fun failure(error: Exception) {
         if (error is CancellationException) throw error
@@ -153,6 +152,8 @@ class DevelopmentViewModel(private val repository: DevelopmentRepository) : View
         update { state -> state.copy(editor = state.editor?.let { if (it.submitting) it else it.copy(title = title ?: it.title, body = body ?: it.body, labels = labels ?: it.labels, assignees = assignees ?: it.assignees) }) }
     }
     fun closeEditor() { editorJob?.cancel(); update { it.copy(editor = null) } }
+    /** The module was switched off: stop loading but keep the session and any pending authorization. */
+    fun stop() { loadJob?.cancel(); closeEditor(); update { it.copy(loading = false, connecting = false) } }
     fun submit() {
         val editor = mutable.value.editor ?: return
         if (editor.submitting || editor.loading || editor.options == null || editor.title.isBlank() || mutable.value.offline || mutable.value.creating) return

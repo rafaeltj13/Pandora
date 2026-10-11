@@ -8,6 +8,12 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import dev.rafaelm.pandora.data.Module
 import dev.rafaelm.pandora.data.ServerStatus
 import org.junit.Rule
 import org.junit.Test
@@ -92,5 +98,37 @@ class PandoraNavigationTest {
 
         compose.onNodeWithTag("navigation_tasks").assertIsSelected()
         compose.onNodeWithText("Connect your calendar").assertIsDisplayed()
+    }
+
+    @Test
+    fun moduleSwitchesShowAndHideTheirPagesAndSettings() {
+        var modules by mutableStateOf(emptySet<Module>())
+        compose.setContent {
+            PandoraTheme {
+                PandoraApp(welcome, onRetry = {}, modules = modules,
+                    onModuleChange = { module, on -> modules = if (on) modules + module else modules - module })
+            }
+        }
+        compose.onNodeWithTag("navigation_tasks").assertDoesNotExist()
+        compose.onNodeWithTag("navigation_development").assertDoesNotExist()
+
+        compose.onNodeWithTag("modules_hint_open_settings").performClick()
+        compose.onNodeWithTag("settings_default_calendar").assertDoesNotExist()
+        compose.onNodeWithTag("module_tasks").assertIsOff().performClick().assertIsOn()
+        compose.onNodeWithTag("settings_default_calendar").assertExists()
+        compose.onNodeWithTag("module_development").performClick().assertIsOn()
+        compose.onNodeWithTag("settings_back").performClick()
+        compose.onNodeWithTag("modules_hint_open_settings").assertDoesNotExist()
+
+        compose.onNodeWithTag("navigation_tasks").performClick().assertIsSelected()
+        compose.onNodeWithTag("open_settings").performClick()
+        compose.onNodeWithTag("module_tasks").performClick().assertIsOff()
+        compose.onNodeWithTag("settings_default_calendar").assertDoesNotExist()
+        compose.onNodeWithTag("settings_back").performClick()
+
+        compose.onNodeWithTag("navigation_home").assertIsSelected()
+        compose.onNodeWithText("Welcome to Pandora").assertIsDisplayed()
+        compose.onNodeWithTag("navigation_tasks").assertDoesNotExist()
+        compose.onNodeWithTag("navigation_development").assertExists()
     }
 }

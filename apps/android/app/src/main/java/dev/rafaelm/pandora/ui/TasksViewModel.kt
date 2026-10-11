@@ -165,6 +165,9 @@ class TasksViewModel(private val repository: TasksRepository) : ViewModel() {
 
     fun closeEditor() { if (mutable.value.editor?.saving != true) update { it.copy(editor = null) } }
 
+    /** The module was switched off: a save in progress still finishes in the background. */
+    fun stop() { loadJob?.cancel(); update { it.copy(loading = false, editor = null) } }
+
     private fun draft(editor: TaskEditor): TaskDraft? = editor.calendarId?.let {
         TaskDraft(editor.title, editor.description, editor.date, editor.time, editor.durationMinutes, editor.allDay, it,
             editor.repeat, editor.customRule)

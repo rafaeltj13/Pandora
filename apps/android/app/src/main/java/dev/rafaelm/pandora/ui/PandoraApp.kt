@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +44,7 @@ import dev.rafaelm.pandora.R
 import dev.rafaelm.pandora.data.ThemeMode
 import dev.rafaelm.pandora.data.CatTheme
 import dev.rafaelm.pandora.data.AppearancePreferences
+import dev.rafaelm.pandora.data.Module
 import dev.rafaelm.pandora.ui.navigation.PandoraRoute
 
 private enum class Destination(
@@ -50,10 +52,12 @@ private enum class Destination(
     @StringRes val label: Int,
     @DrawableRes val icon: Int,
     val tag: String,
+    /** The module that must be on for this page to be reachable; null pages are always there. */
+    val module: Module? = null,
 ) {
     HOME(PandoraRoute.Home, R.string.nav_home, R.drawable.ic_home, "navigation_home"),
-    TASKS(PandoraRoute.Tasks, R.string.nav_tasks, R.drawable.ic_tasks, "navigation_tasks"),
-    DEVELOPMENT(PandoraRoute.Development, R.string.nav_development, R.drawable.ic_development, "navigation_development"),
+    TASKS(PandoraRoute.Tasks, R.string.nav_tasks, R.drawable.ic_tasks, "navigation_tasks", Module.TASKS),
+    DEVELOPMENT(PandoraRoute.Development, R.string.nav_development, R.drawable.ic_development, "navigation_development", Module.DEVELOPMENT),
 }
 
 @Composable
@@ -66,6 +70,8 @@ fun PandoraApp(
     onThemeModeChange: (ThemeMode) -> Unit = {},
     onThemeChange: (CatTheme, Boolean) -> Unit = { _, _ -> },
     onBothThemesChange: (CatTheme) -> Unit = {},
+    modules: Set<Module> = Module.entries.toSet(),
+    onModuleChange: (Module, Boolean) -> Unit = { _, _ -> },
     tasks: TasksState = TasksState(),
     tasksActions: TasksActions = TasksActions(),
 ) {
@@ -87,6 +93,14 @@ fun PandoraApp(
         }
     }
 
+    val destinations = Destination.entries.filter { it.module == null || it.module in modules }
+    // A page whose module was switched off in Settings falls back to Home once it is on screen again.
+    LaunchedEffect(entry, modules) {
+        if (Destination.entries.any { isSelected(it) && it !in destinations }) {
+            navController.popBackStack(PandoraRoute.Home, inclusive = false)
+        }
+    }
+
     // Settings is a sub-page opened from the header of each dock page, so the dock hides there.
     val showDock = Destination.entries.any(::isSelected)
     val openSettings = { navController.navigate(PandoraRoute.Settings) { launchSingleTop = true } }
@@ -99,7 +113,7 @@ fun PandoraApp(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 composable<PandoraRoute.Home> {
-                    WelcomeScreen(state, onOpenSettings = openSettings, onRetry = onRetry)
+                    WelcomeScreen(state, onOpenSettings = openSettings, showModulesHint = modules.isEmpty(), onRetry = onRetry)
                 }
                 composable<PandoraRoute.Tasks> {
                     TasksScreen(tasks, tasksActions, onOpenSettings = openSettings)
@@ -109,7 +123,7 @@ fun PandoraApp(
                 }
                 composable<PandoraRoute.Settings> {
                     SettingsScreen(appearance, onAppearance = { navController.navigate(PandoraRoute.Appearance) },
-                        tasks = tasks, tasksActions = tasksActions, onBack = { navController.popBackStack() })
+                        modules = modules, onModuleChange = onModuleChange, tasks = tasks, tasksActions = tasksActions, onBack = { navController.popBackStack() })
                 }
                 composable<PandoraRoute.Appearance> {
                     AppearanceScreen(appearance, onThemeModeChange, onThemeChange, onBothThemesChange,
@@ -117,7 +131,7 @@ fun PandoraApp(
                 }
             }
         }
-        if (showDock) PandoraDock(::isSelected, ::navigate, Modifier.align(Alignment.BottomCenter))
+        if (showDock) PandoraDock(destinations, ::isSelected, ::navigate, Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -126,7 +140,12 @@ private val DockClearance = DockHeight + PandoraSpacing.medium * 2
 
 /** Floating dock: page tabs in a pill sized to its tabs, with a separate round add button. */
 @Composable
-private fun PandoraDock(isSelected: (Destination) -> Boolean, navigate: (Destination) -> Unit, modifier: Modifier = Modifier) {
+private fun PandoraDock(
+    destinations: List<Destination>,
+    isSelected: (Destination) -> Boolean,
+    navigate: (Destination) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier.fillMaxWidth().navigationBarsPadding()
             .padding(horizontal = PandoraSpacing.large, vertical = PandoraSpacing.medium),
@@ -144,7 +163,7 @@ private fun PandoraDock(isSelected: (Destination) -> Boolean, navigate: (Destina
                 horizontalArrangement = Arrangement.spacedBy(PandoraSpacing.extraSmall),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Destination.entries.forEach { destination ->
+                destinations.forEach { destination ->
                     DockTab(destination, isSelected(destination)) { navigate(destination) }
                 }
             }

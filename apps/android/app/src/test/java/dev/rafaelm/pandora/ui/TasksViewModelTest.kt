@@ -34,6 +34,14 @@ class TasksViewModelTest {
         assertEquals(2L, editor.calendarId)
     }
 
+    @Test fun `stopping drops the open form`() = runTest {
+        val model = TasksViewModel(repository)
+        model.refresh(); advanceUntilIdle()
+        model.newTask(); model.stop()
+        assertNull(model.state.value.editor)
+        assertFalse(model.state.value.loading)
+    }
+
     @Test fun `saving creates the event and returns to the list`() = runTest {
         val model = TasksViewModel(repository)
         model.refresh(); advanceUntilIdle()

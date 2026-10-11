@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.drawable.toDrawable
@@ -18,6 +19,8 @@ import dev.rafaelm.pandora.data.DirectGitHubRepository
 import dev.rafaelm.pandora.data.GitHubConfiguration
 import dev.rafaelm.pandora.data.DevelopmentStorage
 import dev.rafaelm.pandora.data.AppearanceRepository
+import dev.rafaelm.pandora.data.Module
+import dev.rafaelm.pandora.data.ModulesRepository
 import dev.rafaelm.pandora.data.AndroidCalendar
 import dev.rafaelm.pandora.data.TaskStorage
 import dev.rafaelm.pandora.data.TasksRepository
@@ -37,6 +40,7 @@ import dev.rafaelm.pandora.ui.isDark
 class MainActivity : ComponentActivity() {
     private val repository by lazy { HttpStatusRepository(BuildConfig.API_BASE_URL) }
     private val appearanceRepository by lazy { AppearanceRepository(applicationContext) }
+    private val modulesRepository by lazy { ModulesRepository(applicationContext) }
 
     private val tasksRepository by lazy { TasksRepository(AndroidCalendar(applicationContext), TaskStorage(applicationContext)) }
 
@@ -64,19 +68,26 @@ class MainActivity : ComponentActivity() {
                     )
                     window.setBackgroundDrawable(backgroundColor.toDrawable())
                 }
+                val modules by modulesRepository.enabled.collectAsStateWithLifecycle()
                 val model: WelcomeViewModel = viewModel(factory = WelcomeViewModel.Factory(repository))
                 val state by model.state.collectAsStateWithLifecycle()
                 val developmentModel: DevelopmentViewModel = viewModel(factory = DevelopmentViewModel.Factory(developmentRepository))
                 val developmentState by developmentModel.state.collectAsStateWithLifecycle()
-                LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { developmentModel.refresh() }
                 val tasksModel: TasksViewModel = viewModel(factory = TasksViewModel.Factory(tasksRepository))
                 val tasksState by tasksModel.state.collectAsStateWithLifecycle()
+                // Modules that are off do no work; turning one back on refreshes it from its saved data.
+                val developmentOn = Module.DEVELOPMENT in modules
+                if (developmentOn) LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { developmentModel.refresh() }
+                LaunchedEffect(developmentOn) { if (!developmentOn) developmentModel.stop() }
+                val tasksOn = Module.TASKS in modules
+                LaunchedEffect(tasksOn) { if (!tasksOn) tasksModel.stop() }
                 PandoraApp(
                     state, onRetry = model::retry,
                     development = developmentState, developmentActions = DevelopmentActions.from(developmentModel),
                     appearance = appearance, onThemeModeChange = appearanceModel::setMode,
                     onThemeChange = appearanceModel::setTheme, onBothThemesChange = appearanceModel::setBothThemes,
                     tasks = tasksState, tasksActions = TasksActions.from(tasksModel),
+                    modules = modules, onModuleChange = modulesRepository::setEnabled,
                 )
             }
         }

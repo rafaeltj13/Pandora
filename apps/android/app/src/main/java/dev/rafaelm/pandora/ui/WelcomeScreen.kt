@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,7 +34,12 @@ import dev.rafaelm.pandora.R
 import dev.rafaelm.pandora.data.ServerStatus
 
 @Composable
-fun WelcomeScreen(state: WelcomeState, onOpenSettings: (() -> Unit)? = null, onRetry: () -> Unit) {
+fun WelcomeScreen(
+    state: WelcomeState,
+    onOpenSettings: (() -> Unit)? = null,
+    showModulesHint: Boolean = false,
+    onRetry: () -> Unit,
+) {
     PandoraPage(stringResource(R.string.nav_home), onOpenSettings = onOpenSettings) {
         Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.primaryContainer) {
@@ -46,6 +52,14 @@ fun WelcomeScreen(state: WelcomeState, onOpenSettings: (() -> Unit)? = null, onR
                 Spacer(Modifier.height(PandoraSpacing.small))
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayMedium)
                 Text(stringResource(R.string.welcome_subtitle), style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        // With every module off, Home is the only page, so point new users to the switches.
+        if (showModulesHint && onOpenSettings != null) {
+            PandoraNotice(stringResource(R.string.modules_hint_title), stringResource(R.string.modules_hint_body)) {
+                FilledTonalButton(onClick = onOpenSettings, modifier = Modifier.testTag("modules_hint_open_settings")) {
+                    Text(stringResource(R.string.open_settings))
+                }
             }
         }
         PandoraSection(stringResource(R.string.server_title)) {
