@@ -1,11 +1,6 @@
 package dev.rafaelm.pandora.ui
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Card
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -31,19 +26,15 @@ internal fun CatTheme.label(): Int = when (this) {
 
 @Composable
 fun SettingsScreen(appearance: AppearancePreferences, onAppearance: () -> Unit) {
-    PandoraPage(stringResource(R.string.nav_settings), stringResource(R.string.settings_subtitle)) {
-        Card(onClick = onAppearance, modifier = Modifier.fillMaxWidth().testTag("settings_appearance")) {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.appearance_title)) },
-                supportingContent = { Text(stringResource(appearance.mode.label())) },
-            )
+    PandoraPage(stringResource(R.string.nav_settings)) {
+        PandoraSection(stringResource(R.string.settings_interface)) {
+            PandoraListItem(stringResource(R.string.appearance_title),
+                supporting = stringResource(appearance.mode.label()), icon = R.drawable.ic_palette,
+                onClick = onAppearance, modifier = Modifier.testTag("settings_appearance"))
         }
-        Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleMedium)
-        Card(modifier = Modifier.fillMaxWidth()) {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.app_name)) },
-                supportingContent = { Text(stringResource(R.string.version, BuildConfig.VERSION_NAME)) },
-            )
+        PandoraSection(stringResource(R.string.about_title)) {
+            PandoraListItem(stringResource(R.string.app_name),
+                supporting = stringResource(R.string.version, BuildConfig.VERSION_NAME), icon = R.drawable.ic_info)
         }
     }
 }

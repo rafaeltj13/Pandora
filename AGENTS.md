@@ -12,6 +12,13 @@ Channel both "measure twice, cut once" and "yagni". Fight scope creep. Try ti ho
 
 - `apps/android`: native Kotlin/Compose app; UI calls a repository through a
   ViewModel. Keep networking and parsing out of composables.
+- Android UI follows Material 3 (see the `material-3` skill), styled like
+  Android system settings. Build screens from the shared parts in
+  `ui/PandoraPage.kt`: `PandoraScaffold`/`PandoraPage` (top app bar over a
+  rounded sheet), `PandoraSection` (labelled tonal group), and
+  `PandoraListItem` (row; clickable rows get a chevron). Use
+  `MaterialTheme` colors, type, shapes, and `PandoraSpacing` instead of raw
+  values. The Appearance screen keeps its own custom layout.
 - `apps/server`: Rust process startup, configuration, logging, and shutdown.
 - `packages/api`: reusable API routes and response types. Inject runtime
   dependencies here when persistence or authentication is added.

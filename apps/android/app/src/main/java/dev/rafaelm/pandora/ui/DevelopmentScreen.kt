@@ -1,7 +1,6 @@
 package dev.rafaelm.pandora.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,11 +8,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import dev.rafaelm.pandora.R
 import dev.rafaelm.pandora.data.*
 
 data class DevelopmentActions(
@@ -55,111 +57,72 @@ fun DevelopmentScreen(state: DevelopmentState, actions: DevelopmentActions, onOp
         IssueForm(editor, actions, onOpenUrl)
         return
     }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().testTag("development_screen"),
-        contentPadding = PaddingValues(PandoraSpacing.extraLarge), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.large),
-    ) {
-        item { Text("Development", style = MaterialTheme.typography.headlineLarge) }
-        if (state.loading) {
-            item { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Loading GitHub…") }
+    val profile = state.profile
+    PandoraScaffold("Development", actions = {
+        if (profile != null && !state.offline) {
+            IconButton(onClick = actions.refresh, enabled = !state.loading) {
+                Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh")
+            }
         }
-        state.created?.let { issue ->
-            item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(PandoraSpacing.large)) {
-                Text("Issue #${issue.number} created", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = { onOpenUrl(issue.html_url) }) { Text("Open on GitHub") }
-            } } }
-        }
-        val profile = state.profile
-        if (profile == null && state.sessionAvailable) {
-            item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(PandoraSpacing.extraLarge)) {
-                Text("GitHub is unavailable", style = MaterialTheme.typography.titleLarge)
-                Text("Connect to the internet to load your GitHub account and issues.")
-                Button(onClick = actions.refresh, enabled = !state.loading) { Text("Retry") }
-                TextButton(onClick = actions.disconnect, enabled = !state.loading) { Text("Disconnect") }
-            } } }
-            state.error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
-        } else if (profile == null) {
-            item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(PandoraSpacing.extraLarge), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.medium)) {
-                Text("Your repositories, on the go", style = MaterialTheme.typography.titleLarge)
-                Text("Connect your GitHub account to browse open issues and create new ones in your personal repositories.")
-                val authorization = state.authorization
-                if (authorization != null) {
-                    Text("Enter this code on GitHub:")
-                    SelectionContainer { Text(authorization.userCode, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.testTag("github_device_code")) }
-                    Text("Open GitHub, enter the code, and approve access. Return here to finish connecting. You can long-press the code to copy it.")
-                    Button(onClick = { onOpenUrl(authorization.verificationUrl) }) { Text("Open GitHub") }
-                    if (state.connecting) {
-                        CircularProgressIndicator()
-                        Text("Waiting for GitHub authorization…")
-                    } else {
-                        TextButton(onClick = actions.refresh) { Text("Retry connection") }
-                    }
-                    TextButton(onClick = actions.cancelConnection) { Text("Cancel") }
-                } else if (state.connecting) {
-                    CircularProgressIndicator()
-                    Text("Requesting a GitHub login code…")
-                    TextButton(onClick = actions.cancelConnection) { Text("Cancel") }
-                } else {
-                    if (state.configurationRequired) Text("GitHub setup is pending. Connect will be available once Pandora's GitHub App is configured.")
-                    Button(onClick = actions.connect, enabled = !state.loading && !state.configurationRequired) { Text("Connect GitHub") }
-                }
-            } } }
-            state.error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
-        } else {
-            item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(PandoraSpacing.large), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.small)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(PandoraSpacing.medium)) {
-                    AsyncImage(profile.avatar_url, contentDescription = "GitHub avatar", modifier = Modifier.size(56.dp).clip(CircleShape))
-                    Column {
-                        Text(profile.name ?: profile.login, style = MaterialTheme.typography.titleLarge)
-                        Text("@${profile.login}")
-                        Text(if (state.offline) "Offline" else "Connected", color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                Row {
-                    TextButton(onClick = { onOpenUrl(profile.html_url) }) { Text("GitHub profile") }
-                    TextButton(onClick = actions.disconnect, enabled = !state.loading) { Text("Disconnect") }
-                }
-            } } }
-            if (state.offline) {
-                item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(PandoraSpacing.extraLarge)) {
-                    Text("GitHub is unavailable", style = MaterialTheme.typography.titleLarge)
-                    Text("Connect to the internet to load issues and create a new issue.")
-                    Button(onClick = actions.refresh, enabled = !state.loading) { Text("Retry") }
-                } } }
-                state.error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
-            } else {
-                item { Row(horizontalArrangement = Arrangement.spacedBy(PandoraSpacing.small)) {
-                    Button(onClick = { selecting = true }, enabled = !state.loading) { Text("Select repositories") }
-                    TextButton(onClick = actions.refresh, enabled = !state.loading) { Text("Refresh") }
+    }) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().testTag("development_screen"),
+            contentPadding = PaddingValues(PandoraSpacing.large), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.extraLarge),
+        ) {
+            if (state.loading) {
+                item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            }
+            state.created?.let { issue ->
+                item { PandoraSection(null) {
+                    PandoraListItem("Issue #${issue.number} created", supporting = "Open on GitHub",
+                        trailing = { Icon(painterResource(R.drawable.ic_open_in_new), contentDescription = null) },
+                        onClick = { onOpenUrl(issue.html_url) })
                 } }
-                state.installationUrl?.let { url -> item { TextButton(onClick = { onOpenUrl(url) }) { Text("Manage GitHub App access") } } }
-                if (state.repositories.isEmpty() && !state.loading) {
-                    item { Text("No available repositories. Install the GitHub App on your personal repositories with issues enabled, then refresh.") }
-                } else if (state.selected.isEmpty() && !state.loading) {
-                    item { Text("Choose repositories to see their open issues here.") }
-                }
-                items(state.repositories.filter { it.name in state.selected }, key = { it.id }) { repo ->
-                    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(PandoraSpacing.large), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.medium)) {
-                        Text(repo.full_name, style = MaterialTheme.typography.titleMedium)
-                        Text(if (repo.private) "Private repository" else "Public repository", style = MaterialTheme.typography.labelMedium)
-                        Button(onClick = { actions.newIssue(repo) }, enabled = !state.loading && !state.creating, modifier = Modifier.testTag("new_issue:${repo.name}")) { Text("New issue") }
-                        val page = state.issues[repo.name]
-                        if (page != null && page.items.isEmpty()) Text("No open issues on this page.")
-                        page?.items?.forEach { issue ->
-                            Column(Modifier.fillMaxWidth().clickable { onOpenUrl(issue.html_url) }.padding(vertical = PandoraSpacing.small)) {
-                                Text(issue.title, style = MaterialTheme.typography.bodyLarge)
-                                Text("#${issue.number}", style = MaterialTheme.typography.labelMedium)
-                            }
-                            HorizontalDivider()
-                        }
-                        if (page?.next_page != null) {
-                            TextButton(onClick = { actions.loadMore(repo.name) }, enabled = repo.name !in state.loadingMore && !state.loading) {
-                                Text(if (repo.name in state.loadingMore) "Loading…" else "Load more")
-                            }
-                        }
+            }
+            if (profile == null && state.sessionAvailable) {
+                item { Notice("GitHub is unavailable", "Connect to the internet to load your GitHub account and issues.") {
+                    Button(onClick = actions.refresh, enabled = !state.loading) { Text("Retry") }
+                    TextButton(onClick = actions.disconnect, enabled = !state.loading) { Text("Disconnect") }
+                } }
+                state.error?.let { message -> item { ErrorText(message) } }
+            } else if (profile == null) {
+                item { ConnectCard(state, actions, onOpenUrl) }
+                state.error?.let { message -> item { ErrorText(message) } }
+            } else {
+                item { PandoraSection("Account") {
+                    PandoraListItem(profile.name ?: profile.login, supporting = "@${profile.login}",
+                        leading = { AsyncImage(profile.avatar_url, contentDescription = "GitHub avatar", modifier = Modifier.size(40.dp).clip(CircleShape)) },
+                        trailing = {
+                            Text(if (state.offline) "Offline" else "Connected", style = MaterialTheme.typography.labelLarge,
+                                color = if (state.offline) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                        })
+                    Row(Modifier.padding(horizontal = PandoraSpacing.small)) {
+                        TextButton(onClick = { onOpenUrl(profile.html_url) }) { Text("GitHub profile") }
+                        state.installationUrl?.let { url -> TextButton(onClick = { onOpenUrl(url) }) { Text("Manage access") } }
+                        TextButton(onClick = actions.disconnect, enabled = !state.loading) { Text("Disconnect") }
+                    }
+                } }
+                if (state.offline) {
+                    item { Notice("GitHub is unavailable", "Connect to the internet to load issues and create a new issue.") {
+                        Button(onClick = actions.refresh, enabled = !state.loading) { Text("Retry") }
                     } }
+                    state.error?.let { message -> item { ErrorText(message) } }
+                } else {
+                    item {
+                        FilledTonalButton(onClick = { selecting = true }, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) {
+                            Text("Select repositories")
+                        }
+                    }
+                    if (state.repositories.isEmpty() && !state.loading) {
+                        item { Hint("No available repositories. Install the GitHub App on your personal repositories with issues enabled, then refresh.") }
+                    } else if (state.selected.isEmpty() && !state.loading) {
+                        item { Hint("Choose repositories to see their open issues here.") }
+                    }
+                    items(state.repositories.filter { it.name in state.selected }, key = { it.id }) { repo ->
+                        RepositorySection(repo, state, actions, onOpenUrl)
+                    }
+                    state.error?.let { message -> item { ErrorText(message) } }
                 }
-                state.error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
             }
         }
     }
@@ -171,25 +134,124 @@ fun DevelopmentScreen(state: DevelopmentState, actions: DevelopmentActions, onOp
 }
 
 @Composable
+private fun ConnectCard(state: DevelopmentState, actions: DevelopmentActions, onOpenUrl: (String) -> Unit) {
+    Notice("Your repositories, on the go",
+        "Connect your GitHub account to browse open issues and create new ones in your personal repositories.") {
+        val authorization = state.authorization
+        if (authorization != null) {
+            Text("Enter this code on GitHub:")
+            Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.large) {
+                SelectionContainer {
+                    Text(authorization.userCode, style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(horizontal = PandoraSpacing.large, vertical = PandoraSpacing.small).testTag("github_device_code"))
+                }
+            }
+            Text("Open GitHub, enter the code, and approve access. Return here to finish connecting. You can long-press the code to copy it.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = { onOpenUrl(authorization.verificationUrl) }) { Text("Open GitHub") }
+            if (state.connecting) {
+                Waiting("Waiting for GitHub authorization…")
+            } else {
+                TextButton(onClick = actions.refresh) { Text("Retry connection") }
+            }
+            TextButton(onClick = actions.cancelConnection) { Text("Cancel") }
+        } else if (state.connecting) {
+            Waiting("Requesting a GitHub login code…")
+            TextButton(onClick = actions.cancelConnection) { Text("Cancel") }
+        } else {
+            if (state.configurationRequired) Text("GitHub setup is pending. Connect will be available once Pandora's GitHub App is configured.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = actions.connect, enabled = !state.loading && !state.configurationRequired) { Text("Connect GitHub") }
+        }
+    }
+}
+
+@Composable
+private fun RepositorySection(repo: GitHubRepository, state: DevelopmentState, actions: DevelopmentActions, onOpenUrl: (String) -> Unit) {
+    PandoraSection(null) {
+        PandoraListItem(repo.full_name, supporting = if (repo.private) "Private repository" else "Public repository",
+            trailing = {
+                FilledTonalButton(onClick = { actions.newIssue(repo) }, enabled = !state.loading && !state.creating,
+                    modifier = Modifier.testTag("new_issue:${repo.name}")) { Text("New issue") }
+            })
+        val page = state.issues[repo.name]
+        if (page != null) HorizontalDivider(Modifier.padding(horizontal = PandoraSpacing.large), color = MaterialTheme.colorScheme.outlineVariant)
+        if (page != null && page.items.isEmpty()) PandoraListItem("No open issues on this page.")
+        page?.items?.forEach { issue ->
+            PandoraListItem(issue.title, supporting = "#${issue.number}",
+                trailing = { Icon(painterResource(R.drawable.ic_open_in_new), contentDescription = null) },
+                onClick = { onOpenUrl(issue.html_url) })
+        }
+        if (page?.next_page != null) {
+            TextButton(onClick = { actions.loadMore(repo.name) }, enabled = repo.name !in state.loadingMore && !state.loading,
+                modifier = Modifier.padding(horizontal = PandoraSpacing.small)) {
+                Text(if (repo.name in state.loadingMore) "Loading…" else "Load more")
+            }
+        }
+    }
+}
+
+/** A tonal card with a title, explanation, and its actions stacked below. */
+@Composable
+private fun Notice(title: String, body: String, content: @Composable ColumnScope.() -> Unit) {
+    Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.extraLarge) {
+        Column(Modifier.padding(PandoraSpacing.extraLarge), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.medium)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun Waiting(text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PandoraSpacing.medium)) {
+        CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp)
+        Text(text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun Hint(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = PandoraSpacing.large))
+}
+
+@Composable
+private fun ErrorText(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.padding(horizontal = PandoraSpacing.large))
+}
+
+@Composable
 private fun IssueForm(editor: IssueEditor, actions: DevelopmentActions, onOpenUrl: (String) -> Unit) {
     var picker by remember { mutableStateOf<String?>(null) }
-    LazyColumn(contentPadding = PaddingValues(PandoraSpacing.extraLarge), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.large), modifier = Modifier.fillMaxSize().imePadding().testTag("issue_form")) {
-        item { Text("New issue", style = MaterialTheme.typography.headlineLarge); Text(editor.repository.full_name) }
-        item { OutlinedTextField(editor.title, actions.editTitle, label = { Text("Title") }, singleLine = true, enabled = !editor.submitting, modifier = Modifier.fillMaxWidth().testTag("issue_title")) }
-        item { OutlinedTextField(editor.body, actions.editBody, label = { Text("Description (optional)") }, minLines = 5, enabled = !editor.submitting, modifier = Modifier.fillMaxWidth()) }
-        if (editor.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Loading labels and assignees…") }
-        item {
-            OutlinedButton(onClick = { picker = "Labels" }, enabled = editor.options != null && !editor.submitting, modifier = Modifier.fillMaxWidth()) { Text("Labels: ${editor.labels.joinToString().ifEmpty { "None" }}") }
-            OutlinedButton(onClick = { picker = "Assignees" }, enabled = editor.options != null && !editor.submitting, modifier = Modifier.fillMaxWidth()) { Text("Assignees: ${editor.assignees.joinToString().ifEmpty { "None" }}") }
-        }
-        editor.error?.let { message -> item {
-            Text(message, color = MaterialTheme.colorScheme.error)
-            if (editor.options == null) TextButton(onClick = actions.retryOptions) { Text("Retry options") }
-            TextButton(onClick = { onOpenUrl("${editor.repository.html_url}/issues") }) { Text("Check repository on GitHub") }
-        } }
-        item {
-            Button(onClick = actions.submit, enabled = editor.title.isNotBlank() && editor.title.length <= 256 && editor.options != null && !editor.loading && !editor.submitting, modifier = Modifier.fillMaxWidth().testTag("create_issue")) { Text(if (editor.submitting) "Creating…" else "Create issue") }
-            TextButton(onClick = actions.closeEditor) { Text("Discard") }
+    PandoraScaffold("New issue", navigationIcon = {
+        IconButton(onClick = actions.closeEditor) { Icon(painterResource(R.drawable.ic_close), contentDescription = "Close") }
+    }) {
+        LazyColumn(contentPadding = PaddingValues(PandoraSpacing.large), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.large), modifier = Modifier.fillMaxSize().imePadding().testTag("issue_form")) {
+            item { Hint(editor.repository.full_name) }
+            item { OutlinedTextField(editor.title, actions.editTitle, label = { Text("Title") }, singleLine = true, enabled = !editor.submitting, modifier = Modifier.fillMaxWidth().testTag("issue_title")) }
+            item { OutlinedTextField(editor.body, actions.editBody, label = { Text("Description (optional)") }, minLines = 5, enabled = !editor.submitting, modifier = Modifier.fillMaxWidth()) }
+            if (editor.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()); Hint("Loading labels and assignees…") }
+            item {
+                val enabled = editor.options != null && !editor.submitting
+                PandoraSection(null) {
+                    PandoraListItem("Labels: ${editor.labels.joinToString().ifEmpty { "None" }}",
+                        onClick = if (enabled) ({ picker = "Labels" }) else null)
+                    PandoraListItem("Assignees: ${editor.assignees.joinToString().ifEmpty { "None" }}",
+                        onClick = if (enabled) ({ picker = "Assignees" }) else null)
+                }
+            }
+            editor.error?.let { message -> item {
+                ErrorText(message)
+                if (editor.options == null) TextButton(onClick = actions.retryOptions) { Text("Retry options") }
+                TextButton(onClick = { onOpenUrl("${editor.repository.html_url}/issues") }) { Text("Check repository on GitHub") }
+            } }
+            item {
+                Button(onClick = actions.submit, enabled = editor.title.isNotBlank() && editor.title.length <= 256 && editor.options != null && !editor.loading && !editor.submitting, modifier = Modifier.fillMaxWidth().testTag("create_issue")) { Text(if (editor.submitting) "Creating…" else "Create issue") }
+                TextButton(onClick = actions.closeEditor, modifier = Modifier.fillMaxWidth()) { Text("Discard") }
+            }
         }
     }
     picker?.let { title ->
