@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "android-cli": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "devtools/android-cli/SKILL.md",
+      "computedHash": "1197759e24bcabbe7e2111b51a46f04f95866c65f3dc906ded53384e3b239e81"
+    },
+    "edge-to-edge": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "system/edge-to-edge/SKILL.md",
+      "computedHash": "7db3c09f145f5bad71b09da526dad46cb8b2ace56e62e87aa2ca7e81a0b4790e"
+    },
+    "testing-setup": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "testing/testing-setup/SKILL.md",
+      "computedHash": "52e837051a86739d08e7e8601e891732e1008b9f6829851f441ebc841e4d6940"
+    }
+  }
+}
