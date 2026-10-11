@@ -29,8 +29,8 @@ class PandoraNavigationTest {
         compose.onNodeWithTag("navigation_home").assertIsSelected()
         compose.onNodeWithText("Welcome to Pandora").assertIsDisplayed()
 
-        compose.onNodeWithTag("navigation_explore").performClick().assertIsSelected()
-        compose.onNodeWithText("Nothing here yet").assertIsDisplayed()
+        compose.onNodeWithTag("navigation_tasks").performClick().assertIsSelected()
+        compose.onNodeWithText("Connect your calendar").assertIsDisplayed()
 
         compose.onNodeWithTag("navigation_development").performClick().assertIsSelected()
         compose.onNodeWithText("Connect GitHub").assertIsDisplayed()
@@ -50,7 +50,7 @@ class PandoraNavigationTest {
     @Test
     fun repeatedTabTapsDoNotPreventBackFromReturningHome() {
         render()
-        repeat(3) { compose.onNodeWithTag("navigation_explore").performClick() }
+        repeat(3) { compose.onNodeWithTag("navigation_tasks").performClick() }
         repeat(3) { compose.onNodeWithTag("navigation_settings").performClick() }
 
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
@@ -65,11 +65,11 @@ class PandoraNavigationTest {
         restoration.setContent {
             PandoraTheme { PandoraApp(welcome, onRetry = {}) }
         }
-        compose.onNodeWithTag("navigation_explore").performClick()
+        compose.onNodeWithTag("navigation_tasks").performClick()
 
         restoration.emulateSavedInstanceStateRestore()
 
-        compose.onNodeWithTag("navigation_explore").assertIsSelected()
-        compose.onNodeWithText("Nothing here yet").assertIsDisplayed()
+        compose.onNodeWithTag("navigation_tasks").assertIsSelected()
+        compose.onNodeWithText("Connect your calendar").assertIsDisplayed()
     }
 }

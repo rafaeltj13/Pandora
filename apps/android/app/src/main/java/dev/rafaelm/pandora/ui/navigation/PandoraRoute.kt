@@ -7,7 +7,7 @@ sealed interface PandoraRoute {
     data object Home : PandoraRoute
 
     @Serializable
-    data object Explore : PandoraRoute
+    data object Tasks : PandoraRoute
 
     @Serializable
     data object Development : PandoraRoute
