@@ -2,17 +2,33 @@ package dev.rafaelm.pandora.ui
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -38,7 +54,6 @@ private enum class Destination(
     HOME(PandoraRoute.Home, R.string.nav_home, R.drawable.ic_home, "navigation_home"),
     TASKS(PandoraRoute.Tasks, R.string.nav_tasks, R.drawable.ic_tasks, "navigation_tasks"),
     DEVELOPMENT(PandoraRoute.Development, R.string.nav_development, R.drawable.ic_development, "navigation_development"),
-    SETTINGS(PandoraRoute.Settings, R.string.nav_settings, R.drawable.ic_settings, "navigation_settings"),
 }
 
 @Composable
@@ -59,8 +74,7 @@ fun PandoraApp(
     val entry by navController.currentBackStackEntryAsState()
 
     fun isSelected(destination: Destination): Boolean =
-        entry?.destination?.hasRoute(destination.route::class) == true ||
-            (destination == Destination.SETTINGS && entry?.destination?.hasRoute<PandoraRoute.Appearance>() == true)
+        entry?.destination?.hasRoute(destination.route::class) == true
 
     fun navigate(destination: Destination) {
         if (isSelected(destination)) return
@@ -73,43 +87,100 @@ fun PandoraApp(
         }
     }
 
-    Scaffold(
-        bottomBar = {
-            if (entry?.destination?.hasRoute<PandoraRoute.Appearance>() != true) NavigationBar {
-                Destination.entries.forEach { destination ->
-                    NavigationBarItem(
-                        selected = isSelected(destination),
-                        onClick = { navigate(destination) },
-                        icon = { Icon(painterResource(destination.icon), contentDescription = null) },
-                        label = { Text(stringResource(destination.label)) },
-                        modifier = Modifier.testTag(destination.tag),
-                    )
+    // Settings is a sub-page opened from the header of each dock page, so the dock hides there.
+    val showDock = Destination.entries.any(::isSelected)
+    val openSettings = { navController.navigate(PandoraRoute.Settings) { launchSingleTop = true } }
+    // Pages draw under the dock and pad their scrolling content by LocalDockClearance.
+    Box(Modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalDockClearance provides if (showDock) DockClearance else 0.dp) {
+            NavHost(
+                navController = navController,
+                startDestination = PandoraRoute.Home,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                composable<PandoraRoute.Home> {
+                    WelcomeScreen(state, onOpenSettings = openSettings, onRetry = onRetry)
+                }
+                composable<PandoraRoute.Tasks> {
+                    TasksScreen(tasks, tasksActions, onOpenSettings = openSettings)
+                }
+                composable<PandoraRoute.Development> {
+                    DevelopmentScreen(development, developmentActions, onOpenUrl = uriHandler::openUri, onOpenSettings = openSettings)
+                }
+                composable<PandoraRoute.Settings> {
+                    SettingsScreen(appearance, onAppearance = { navController.navigate(PandoraRoute.Appearance) },
+                        tasks = tasks, tasksActions = tasksActions, onBack = { navController.popBackStack() })
+                }
+                composable<PandoraRoute.Appearance> {
+                    AppearanceScreen(appearance, onThemeModeChange, onThemeChange, onBothThemesChange,
+                        onBack = { navController.popBackStack() })
                 }
             }
-        },
-    ) { insets ->
-        NavHost(
-            navController = navController,
-            startDestination = PandoraRoute.Home,
-            modifier = Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets),
+        }
+        if (showDock) PandoraDock(::isSelected, ::navigate, Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+private val DockHeight = 64.dp
+private val DockClearance = DockHeight + PandoraSpacing.medium * 2
+
+/** Floating dock: page tabs in a pill sized to its tabs, with a separate round add button. */
+@Composable
+private fun PandoraDock(isSelected: (Destination) -> Boolean, navigate: (Destination) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().navigationBarsPadding()
+            .padding(horizontal = PandoraSpacing.large, vertical = PandoraSpacing.medium),
+        horizontalArrangement = Arrangement.spacedBy(PandoraSpacing.medium, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.height(DockHeight),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = 3.dp,
         ) {
-            composable<PandoraRoute.Home> {
-                WelcomeScreen(state, onRetry)
+            Row(
+                Modifier.fillMaxHeight().padding(PandoraSpacing.small).selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(PandoraSpacing.extraSmall),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Destination.entries.forEach { destination ->
+                    DockTab(destination, isSelected(destination)) { navigate(destination) }
+                }
             }
-            composable<PandoraRoute.Tasks> {
-                TasksScreen(tasks, tasksActions)
+        }
+        // Placeholder: the add action has no behavior yet.
+        Surface(
+            onClick = {},
+            modifier = Modifier.size(DockHeight).testTag("dock_add"),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = 3.dp,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.dock_add))
             }
-            composable<PandoraRoute.Development> {
-                DevelopmentScreen(development, developmentActions, onOpenUrl = uriHandler::openUri)
-            }
-            composable<PandoraRoute.Settings> {
-                SettingsScreen(appearance, onAppearance = { navController.navigate(PandoraRoute.Appearance) },
-                    tasks = tasks, tasksActions = tasksActions)
-            }
-            composable<PandoraRoute.Appearance> {
-                AppearanceScreen(appearance, onThemeModeChange, onThemeChange, onBothThemesChange,
-                    onBack = { navController.popBackStack() })
-            }
+        }
+    }
+}
+
+/** The selected tab grows into a primary-container pill with its icon; the others show only their label. */
+@Composable
+private fun DockTab(destination: Destination, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        shape = CircleShape,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxHeight().clip(CircleShape)
+            .selectable(selected, role = Role.Tab, onClick = onClick).testTag(destination.tag),
+    ) {
+        Row(
+            Modifier.animateContentSize().padding(horizontal = PandoraSpacing.medium),
+            horizontalArrangement = Arrangement.spacedBy(PandoraSpacing.small),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (selected) Icon(painterResource(destination.icon), contentDescription = null)
+            Text(stringResource(destination.label), style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
     }
 }

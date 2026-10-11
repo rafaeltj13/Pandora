@@ -15,6 +15,8 @@
   <string name="settings_tasks">Tasks</string>
   <string name="appearance_title">Appearance</string>
   <string name="back_to_settings">Back to Settings</string>
+  <string name="back">Back</string>
+  <string name="dock_add">Add</string>
   <string name="theme_system">System</string>
   <string name="theme_light">Light</string>
   <string name="theme_dark">Dark</string>
@@ -35,5 +37,5 @@
   <string name="shown_calendars_all">All calendars</string>
   <string name="shown_calendars_some">%1$d of %2$d calendars</string>
   <string name="about_title">About Pandora</string>
-  <string name="nav_development">Development</string>
+  <string name="nav_development">Dev</string>
 </resources>

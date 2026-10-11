@@ -35,15 +35,36 @@ class PandoraNavigationTest {
         compose.onNodeWithTag("navigation_development").performClick().assertIsSelected()
         compose.onNodeWithText("Connect GitHub").assertIsDisplayed()
 
-        compose.onNodeWithTag("navigation_settings").performClick().assertIsSelected()
+        compose.onNodeWithTag("navigation_home").performClick().assertIsSelected()
+        compose.onNodeWithText("Welcome to Pandora").assertIsDisplayed()
+    }
+
+    @Test
+    fun headerOpensSettingsWithoutTheDock() {
+        render()
+        compose.onNodeWithTag("navigation_development").performClick()
+
+        compose.onNodeWithTag("open_settings").performClick()
         compose.onNodeWithText("About Pandora").assertIsDisplayed()
+        compose.onNodeWithTag("navigation_home").assertDoesNotExist()
+        compose.onNodeWithTag("open_settings").assertDoesNotExist()
 
         compose.onNodeWithTag("settings_appearance").performClick()
         compose.onNodeWithTag("theme_system").assertIsSelected()
         compose.onNodeWithTag("appearance_back").performClick()
         compose.onNodeWithText("About Pandora").assertIsDisplayed()
 
-        compose.onNodeWithTag("navigation_home").performClick().assertIsSelected()
+        compose.onNodeWithTag("settings_back").performClick()
+        compose.onNodeWithTag("navigation_development").assertIsSelected()
+        compose.onNodeWithText("Connect GitHub").assertIsDisplayed()
+    }
+
+    @Test
+    fun dockAddButtonDoesNothingYet() {
+        render()
+        compose.onNodeWithTag("dock_add").assertIsDisplayed().performClick()
+
+        compose.onNodeWithTag("navigation_home").assertIsSelected()
         compose.onNodeWithText("Welcome to Pandora").assertIsDisplayed()
     }
 
@@ -51,7 +72,7 @@ class PandoraNavigationTest {
     fun repeatedTabTapsDoNotPreventBackFromReturningHome() {
         render()
         repeat(3) { compose.onNodeWithTag("navigation_tasks").performClick() }
-        repeat(3) { compose.onNodeWithTag("navigation_settings").performClick() }
+        repeat(3) { compose.onNodeWithTag("navigation_development").performClick() }
 
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
 

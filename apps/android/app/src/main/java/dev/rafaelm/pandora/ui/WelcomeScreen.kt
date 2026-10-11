@@ -33,8 +33,8 @@ import dev.rafaelm.pandora.R
 import dev.rafaelm.pandora.data.ServerStatus
 
 @Composable
-fun WelcomeScreen(state: WelcomeState, onRetry: () -> Unit) {
-    PandoraPage(stringResource(R.string.nav_home)) {
+fun WelcomeScreen(state: WelcomeState, onOpenSettings: (() -> Unit)? = null, onRetry: () -> Unit) {
+    PandoraPage(stringResource(R.string.nav_home), onOpenSettings = onOpenSettings) {
         Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.primaryContainer) {
             Column(Modifier.padding(PandoraSpacing.extraLarge), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.small)) {

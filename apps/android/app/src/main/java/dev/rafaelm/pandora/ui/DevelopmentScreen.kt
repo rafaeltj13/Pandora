@@ -47,7 +47,7 @@ data class DevelopmentActions(
 }
 
 @Composable
-fun DevelopmentScreen(state: DevelopmentState, actions: DevelopmentActions, onOpenUrl: (String) -> Unit) {
+fun DevelopmentScreen(state: DevelopmentState, actions: DevelopmentActions, onOpenUrl: (String) -> Unit, onOpenSettings: (() -> Unit)? = null) {
     var selecting by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { actions.refresh() }
     DisposableEffect(Unit) { onDispose { actions.closeEditor() } }
@@ -64,10 +64,10 @@ fun DevelopmentScreen(state: DevelopmentState, actions: DevelopmentActions, onOp
                 Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh")
             }
         }
-    }) {
+    }, onOpenSettings = onOpenSettings) { bottom ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().testTag("development_screen"),
-            contentPadding = PaddingValues(PandoraSpacing.large), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.extraLarge),
+            contentPadding = PaddingValues(PandoraSpacing.large, PandoraSpacing.large, PandoraSpacing.large, PandoraSpacing.large + bottom), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.extraLarge),
         ) {
             if (state.loading) {
                 item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -216,8 +216,8 @@ private fun IssueForm(editor: IssueEditor, actions: DevelopmentActions, onOpenUr
     var picker by remember { mutableStateOf<String?>(null) }
     PandoraScaffold("New issue", navigationIcon = {
         IconButton(onClick = actions.closeEditor) { Icon(painterResource(R.drawable.ic_close), contentDescription = "Close") }
-    }) {
-        LazyColumn(contentPadding = PaddingValues(PandoraSpacing.large), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.large), modifier = Modifier.fillMaxSize().imePadding().testTag("issue_form")) {
+    }) { bottom ->
+        LazyColumn(contentPadding = PaddingValues(PandoraSpacing.large, PandoraSpacing.large, PandoraSpacing.large, PandoraSpacing.large + bottom), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.large), modifier = Modifier.fillMaxSize().imePadding().testTag("issue_form")) {
             item { Hint(editor.repository.full_name) }
             item { OutlinedTextField(editor.title, actions.editTitle, label = { Text("Title") }, singleLine = true, enabled = !editor.submitting, modifier = Modifier.fillMaxWidth().testTag("issue_title")) }
             item { OutlinedTextField(editor.body, actions.editBody, label = { Text("Description (optional)") }, minLines = 5, enabled = !editor.submitting, modifier = Modifier.fillMaxWidth()) }

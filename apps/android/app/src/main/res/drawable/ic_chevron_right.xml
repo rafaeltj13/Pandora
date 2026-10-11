@@ -1,5 +1,8 @@
+<!-- Tabler Icons v3.44.0 "chevron-right" (MIT), as in T3 Code's Android app. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-  android:width="24dp" android:height="24dp" android:autoMirrored="true"
+  android:width="24dp" android:height="24dp"
   android:viewportWidth="24" android:viewportHeight="24">
-  <path android:fillColor="#FFFFFF" android:pathData="M10,6L8.59,7.41 13.17,12l-4.58,4.59L10,18l6,-6Z" />
+  <path android:pathData="M9 6l6 6l-6 6"
+    android:strokeColor="#FFFFFF" android:strokeWidth="2"
+    android:strokeLineCap="round" android:strokeLineJoin="round" />
 </vector>

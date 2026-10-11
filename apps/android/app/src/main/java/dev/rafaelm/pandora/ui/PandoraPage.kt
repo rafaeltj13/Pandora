@@ -6,29 +6,51 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import dev.rafaelm.pandora.R
 
+/** Slimmer than the Material default (64dp) so pages start closer to the status bar. */
+private val TopBarHeight = 52.dp
+
+/** Height of the floating dock drawn over the bottom of the page; 0 when it is hidden. */
+internal val LocalDockClearance = staticCompositionLocalOf { 0.dp }
+
 /**
- * Page frame shared by every screen: a top app bar over a rounded content sheet.
+ * Page frame shared by every screen: a top app bar over a rounded content sheet
+ * that runs to the bottom edge, under the dock. [content] receives the bottom padding
+ * its scrolling container needs to clear the dock and the navigation bar.
+ * Top-level pages pass [onOpenSettings] to show the Settings button at the end of the bar.
  * Groups inside the sheet use [PandoraSection] and rows use [PandoraListItem].
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,18 +60,29 @@ internal fun PandoraScaffold(
     modifier: Modifier = Modifier,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
-    content: @Composable () -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
+    content: @Composable (bottom: Dp) -> Unit,
 ) {
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text(title) }, navigationIcon = navigationIcon, actions = actions) },
+        topBar = {
+            TopAppBar(title = { Text(title) }, navigationIcon = navigationIcon, expandedHeight = TopBarHeight, actions = {
+                actions()
+                if (onOpenSettings != null) {
+                    IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("open_settings")) {
+                        Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.nav_settings))
+                    }
+                }
+            })
+        },
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
     ) { insets ->
+        val bottom = LocalDockClearance.current + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         Surface(
             modifier = Modifier.fillMaxSize().padding(insets),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shape = MaterialTheme.shapes.extraLarge,
-            content = content,
-        )
+            shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = CornerSize(0), bottomEnd = CornerSize(0)),
+        ) { content(bottom) }
     }
 }
 
@@ -58,11 +91,13 @@ internal fun PandoraScaffold(
 internal fun PandoraPage(
     title: String,
     modifier: Modifier = Modifier,
+    navigationIcon: @Composable () -> Unit = {},
+    onOpenSettings: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    PandoraScaffold(title, modifier) {
+    PandoraScaffold(title, modifier, navigationIcon, onOpenSettings = onOpenSettings) { bottom ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(PandoraSpacing.large),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(PandoraSpacing.large).padding(bottom = bottom),
             verticalArrangement = Arrangement.spacedBy(PandoraSpacing.extraLarge),
             content = content,
         )

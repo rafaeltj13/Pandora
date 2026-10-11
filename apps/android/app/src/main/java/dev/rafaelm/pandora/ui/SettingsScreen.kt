@@ -1,6 +1,8 @@
 package dev.rafaelm.pandora.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,6 +12,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import dev.rafaelm.pandora.BuildConfig
 import dev.rafaelm.pandora.R
@@ -36,11 +39,16 @@ fun SettingsScreen(
     onAppearance: () -> Unit,
     tasks: TasksState = TasksState(),
     tasksActions: TasksActions = TasksActions(),
+    onBack: () -> Unit = {},
 ) {
     var choosingCalendar by remember { mutableStateOf(false) }
     var choosingShown by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tasksActions.refresh() }
-    PandoraPage(stringResource(R.string.nav_settings)) {
+    PandoraPage(stringResource(R.string.nav_settings), navigationIcon = {
+        IconButton(onClick = onBack, modifier = Modifier.testTag("settings_back")) {
+            Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.back))
+        }
+    }) {
         PandoraSection(stringResource(R.string.settings_interface)) {
             PandoraListItem(stringResource(R.string.appearance_title),
                 supporting = stringResource(appearance.mode.label()), icon = R.drawable.ic_palette,

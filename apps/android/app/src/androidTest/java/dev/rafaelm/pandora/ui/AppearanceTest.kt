@@ -63,7 +63,7 @@ class AppearanceTest {
                     }
                 }
             }
-            compose.onNodeWithTag("navigation_settings").performClick()
+            compose.onNodeWithTag("open_settings").performClick()
             compose.onNodeWithTag("settings_appearance").performClick()
             compose.onNodeWithTag("theme_system").assertIsSelected()
             compose.runOnIdle { assertTrue(background.luminance() > 0.8f) }
@@ -93,7 +93,7 @@ class AppearanceTest {
             }
 
             restoration.emulateSavedInstanceStateRestore()
-            compose.onNodeWithTag("navigation_settings").assertDoesNotExist()
+            compose.onNodeWithTag("navigation_home").assertDoesNotExist()
             compose.onNodeWithTag("theme_light").assertIsSelected()
 
             compose.onNodeWithTag("theme_system").performScrollTo().performClick().assertIsSelected()

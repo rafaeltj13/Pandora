@@ -1,6 +1,14 @@
+<!-- Tabler Icons v3.44.0 "home" (MIT), as in T3 Code's Android app. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
   android:width="24dp" android:height="24dp"
   android:viewportWidth="24" android:viewportHeight="24">
-  <path android:fillColor="#FFFFFF"
-    android:pathData="M3,11L12,3L21,11L21,21L15,21L15,15L9,15L9,21L3,21Z" />
+  <path android:pathData="M5 12l-2 0l9 -9l9 9l-2 0"
+    android:strokeColor="#FFFFFF" android:strokeWidth="2"
+    android:strokeLineCap="round" android:strokeLineJoin="round" />
+  <path android:pathData="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"
+    android:strokeColor="#FFFFFF" android:strokeWidth="2"
+    android:strokeLineCap="round" android:strokeLineJoin="round" />
+  <path android:pathData="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"
+    android:strokeColor="#FFFFFF" android:strokeWidth="2"
+    android:strokeLineCap="round" android:strokeLineJoin="round" />
 </vector>

@@ -113,7 +113,7 @@ private fun openInCalendar(context: Context, event: AgendaEvent) {
 }
 
 @Composable
-fun TasksScreen(state: TasksState, actions: TasksActions, clock: Clock = Clock.systemDefaultZone()) {
+fun TasksScreen(state: TasksState, actions: TasksActions, clock: Clock = Clock.systemDefaultZone(), onOpenSettings: (() -> Unit)? = null) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { actions.refresh() }
     DisposableEffect(Unit) { onDispose { actions.closeEditor() } }
     var deleting by remember { mutableStateOf<TaskItem?>(null) }
@@ -122,7 +122,7 @@ fun TasksScreen(state: TasksState, actions: TasksActions, clock: Clock = Clock.s
         BackHandler { actions.closeEditor() }
         TaskForm(editor, state.taskCalendars, actions, clock, onDelete = { deleting = it })
     } else {
-        TaskList(state, actions, clock)
+        TaskList(state, actions, clock, onOpenSettings)
     }
     deleting?.let { item ->
         val task = item.task
@@ -139,14 +139,14 @@ fun TasksScreen(state: TasksState, actions: TasksActions, clock: Clock = Clock.s
 }
 
 @Composable
-private fun TaskList(state: TasksState, actions: TasksActions, clock: Clock) {
+private fun TaskList(state: TasksState, actions: TasksActions, clock: Clock, onOpenSettings: (() -> Unit)?) {
     val context = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { actions.refresh() }
     val openEvent = actions.openEvent ?: { event: AgendaEvent -> openInCalendar(context, event) }
     val today = LocalDate.now(clock)
-    PandoraScaffold(stringResource(R.string.nav_tasks)) {
+    PandoraScaffold(stringResource(R.string.nav_tasks), onOpenSettings = onOpenSettings) { bottom ->
         Box(Modifier.fillMaxSize().testTag("tasks_screen")) {
-            LazyColumn(contentPadding = PaddingValues(PandoraSpacing.large, PandoraSpacing.large, PandoraSpacing.large, 96.dp),
+            LazyColumn(contentPadding = PaddingValues(PandoraSpacing.large, PandoraSpacing.large, PandoraSpacing.large, 96.dp + bottom),
                 verticalArrangement = Arrangement.spacedBy(PandoraSpacing.extraLarge), modifier = Modifier.fillMaxSize()) {
                 if (!state.access) {
                     item { PandoraNotice("Connect your calendar",
@@ -201,7 +201,7 @@ private fun TaskList(state: TasksState, actions: TasksActions, clock: Clock) {
                 } }
             }
             if (state.access && state.taskCalendars.isNotEmpty()) {
-                FloatingActionButton(onClick = actions.newTask, modifier = Modifier.align(Alignment.BottomEnd).padding(PandoraSpacing.large).testTag("new_task")) {
+                FloatingActionButton(onClick = actions.newTask, modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = bottom).padding(PandoraSpacing.large).testTag("new_task")) {
                     Icon(painterResource(R.drawable.ic_add), contentDescription = "New task")
                 }
             }
@@ -250,9 +250,9 @@ private fun TaskForm(editor: TaskEditor, calendars: List<TaskCalendar>, actions:
         TextButton(onClick = actions.save, enabled = enabled && editor.title.isNotBlank(), modifier = Modifier.testTag("save_task")) {
             Text(when { editor.saving -> "Saving…"; editor.item == null -> "Add"; else -> "Save" })
         }
-    }) {
+    }) { bottom ->
         // A plain scrolling column: the form is short and every field stays composed.
-        Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(PandoraSpacing.large).testTag("task_form"),
+        Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(PandoraSpacing.large).padding(bottom = bottom).testTag("task_form"),
             verticalArrangement = Arrangement.spacedBy(PandoraSpacing.large)) {
             if (editor.item?.hasPastOccurrences == true) {
                 Text("Changes apply from ${editor.item.next.date(clock.zone).format(dateFormat)} on. Earlier events stay as they are.",
