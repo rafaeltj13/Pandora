@@ -36,7 +36,7 @@ private enum class Destination(
     val tag: String,
 ) {
     HOME(PandoraRoute.Home, R.string.nav_home, R.drawable.ic_home, "navigation_home"),
-    EXPLORE(PandoraRoute.Explore, R.string.nav_explore, R.drawable.ic_explore, "navigation_explore"),
+    TASKS(PandoraRoute.Tasks, R.string.nav_tasks, R.drawable.ic_tasks, "navigation_tasks"),
     DEVELOPMENT(PandoraRoute.Development, R.string.nav_development, R.drawable.ic_development, "navigation_development"),
     SETTINGS(PandoraRoute.Settings, R.string.nav_settings, R.drawable.ic_settings, "navigation_settings"),
 }
@@ -51,6 +51,8 @@ fun PandoraApp(
     onThemeModeChange: (ThemeMode) -> Unit = {},
     onThemeChange: (CatTheme, Boolean) -> Unit = { _, _ -> },
     onBothThemesChange: (CatTheme) -> Unit = {},
+    tasks: TasksState = TasksState(),
+    tasksActions: TasksActions = TasksActions(),
 ) {
     val uriHandler = LocalUriHandler.current
     val navController = rememberNavController()
@@ -94,14 +96,15 @@ fun PandoraApp(
             composable<PandoraRoute.Home> {
                 WelcomeScreen(state, onRetry)
             }
-            composable<PandoraRoute.Explore> {
-                ExploreScreen()
+            composable<PandoraRoute.Tasks> {
+                TasksScreen(tasks, tasksActions)
             }
             composable<PandoraRoute.Development> {
                 DevelopmentScreen(development, developmentActions, onOpenUrl = uriHandler::openUri)
             }
             composable<PandoraRoute.Settings> {
-                SettingsScreen(appearance, onAppearance = { navController.navigate(PandoraRoute.Appearance) })
+                SettingsScreen(appearance, onAppearance = { navController.navigate(PandoraRoute.Appearance) },
+                    tasks = tasks, tasksActions = tasksActions)
             }
             composable<PandoraRoute.Appearance> {
                 AppearanceScreen(appearance, onThemeModeChange, onThemeChange, onBothThemesChange,

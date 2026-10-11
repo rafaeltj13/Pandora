@@ -2,6 +2,12 @@ package dev.rafaelm.pandora.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -25,16 +31,56 @@ internal fun CatTheme.label(): Int = when (this) {
 }
 
 @Composable
-fun SettingsScreen(appearance: AppearancePreferences, onAppearance: () -> Unit) {
+fun SettingsScreen(
+    appearance: AppearancePreferences,
+    onAppearance: () -> Unit,
+    tasks: TasksState = TasksState(),
+    tasksActions: TasksActions = TasksActions(),
+) {
+    var choosingCalendar by remember { mutableStateOf(false) }
+    var choosingShown by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tasksActions.refresh() }
     PandoraPage(stringResource(R.string.nav_settings)) {
         PandoraSection(stringResource(R.string.settings_interface)) {
             PandoraListItem(stringResource(R.string.appearance_title),
                 supporting = stringResource(appearance.mode.label()), icon = R.drawable.ic_palette,
                 onClick = onAppearance, modifier = Modifier.testTag("settings_appearance"))
         }
+        PandoraSection(stringResource(R.string.settings_tasks)) {
+            val calendar = tasks.taskCalendars.firstOrNull { it.id == tasks.defaultCalendarId }
+            PandoraListItem(stringResource(R.string.default_calendar_title),
+                supporting = calendar?.label() ?: stringResource(when {
+                    !tasks.access -> R.string.default_calendar_access
+                    !tasks.loaded -> R.string.default_calendar_loading
+                    else -> R.string.default_calendar_none
+                }),
+                icon = R.drawable.ic_calendar,
+                onClick = if (calendar != null) ({ choosingCalendar = true }) else null,
+                modifier = Modifier.testTag("settings_default_calendar"))
+            val shownCount = tasks.calendars.count { it.id !in tasks.hiddenCalendars }
+            PandoraListItem(stringResource(R.string.shown_calendars_title),
+                supporting = when {
+                    !tasks.access -> stringResource(R.string.default_calendar_access)
+                    !tasks.loaded -> stringResource(R.string.default_calendar_loading)
+                    tasks.calendars.isEmpty() -> stringResource(R.string.default_calendar_none)
+                    shownCount == tasks.calendars.size -> stringResource(R.string.shown_calendars_all)
+                    else -> stringResource(R.string.shown_calendars_some, shownCount, tasks.calendars.size)
+                },
+                icon = R.drawable.ic_visibility,
+                onClick = if (tasks.calendars.isNotEmpty()) ({ choosingShown = true }) else null,
+                modifier = Modifier.testTag("settings_shown_calendars"))
+        }
         PandoraSection(stringResource(R.string.about_title)) {
             PandoraListItem(stringResource(R.string.app_name),
                 supporting = stringResource(R.string.version, BuildConfig.VERSION_NAME), icon = R.drawable.ic_info)
         }
+    }
+    if (choosingCalendar) {
+        CalendarPicker(tasks.taskCalendars, tasks.defaultCalendarId, onDismiss = { choosingCalendar = false },
+            onSelect = { tasksActions.setDefaultCalendar(it); choosingCalendar = false })
+    }
+    if (choosingShown) {
+        ShownCalendarsPicker(tasks.calendars, tasks.hiddenCalendars, onDismiss = { choosingShown = false },
+            onToggle = tasksActions.setCalendarShown)
     }
 }

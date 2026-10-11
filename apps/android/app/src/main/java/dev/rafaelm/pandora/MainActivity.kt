@@ -18,9 +18,14 @@ import dev.rafaelm.pandora.data.DirectGitHubRepository
 import dev.rafaelm.pandora.data.GitHubConfiguration
 import dev.rafaelm.pandora.data.DevelopmentStorage
 import dev.rafaelm.pandora.data.AppearanceRepository
+import dev.rafaelm.pandora.data.AndroidCalendar
+import dev.rafaelm.pandora.data.TaskStorage
+import dev.rafaelm.pandora.data.TasksRepository
 import dev.rafaelm.pandora.ui.AppearanceViewModel
 import dev.rafaelm.pandora.ui.DevelopmentViewModel
 import dev.rafaelm.pandora.ui.DevelopmentActions
+import dev.rafaelm.pandora.ui.TasksActions
+import dev.rafaelm.pandora.ui.TasksViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import dev.rafaelm.pandora.ui.PandoraApp
@@ -32,6 +37,8 @@ import dev.rafaelm.pandora.ui.isDark
 class MainActivity : ComponentActivity() {
     private val repository by lazy { HttpStatusRepository(BuildConfig.API_BASE_URL) }
     private val appearanceRepository by lazy { AppearanceRepository(applicationContext) }
+
+    private val tasksRepository by lazy { TasksRepository(AndroidCalendar(applicationContext), TaskStorage(applicationContext)) }
 
     private val developmentRepository by lazy { DirectGitHubRepository(
         GitHubConfiguration(BuildConfig.GITHUB_CLIENT_ID, BuildConfig.GITHUB_APP_SLUG, BuildConfig.GITHUB_LOGIN),
@@ -62,11 +69,14 @@ class MainActivity : ComponentActivity() {
                 val developmentModel: DevelopmentViewModel = viewModel(factory = DevelopmentViewModel.Factory(developmentRepository))
                 val developmentState by developmentModel.state.collectAsStateWithLifecycle()
                 LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { developmentModel.refresh() }
+                val tasksModel: TasksViewModel = viewModel(factory = TasksViewModel.Factory(tasksRepository))
+                val tasksState by tasksModel.state.collectAsStateWithLifecycle()
                 PandoraApp(
                     state, onRetry = model::retry,
                     development = developmentState, developmentActions = DevelopmentActions.from(developmentModel),
                     appearance = appearance, onThemeModeChange = appearanceModel::setMode,
                     onThemeChange = appearanceModel::setTheme, onBothThemesChange = appearanceModel::setBothThemes,
+                    tasks = tasksState, tasksActions = TasksActions.from(tasksModel),
                 )
             }
         }

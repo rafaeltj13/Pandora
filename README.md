@@ -3,7 +3,7 @@
 A minimal native Android app and Rust backend, organized like the Better-T-Stack
 projects in this workspace. The first screen loads a welcome message from the
 server and handles loading, connection failures, and Retry. A bottom navigation
-bar switches between Home, Explore, Development, and Settings.
+bar switches between Home, Tasks, Development, and Settings.
 
 ## What has been implemented
 
@@ -25,9 +25,9 @@ bar switches between Home, Explore, Development, and Settings.
 | App page | Current behavior |
 | --- | --- |
 | Home | Loads the Rust welcome message; shows loading, errors, Retry and Refresh. |
-| Explore | Empty starter page for future features. |
+| Tasks | Creates tasks (title, date, time and duration or all day, optional description, optional repeat) as tagged Google Calendar events, so they live in the calendar and survive reinstalls. Edits to repeating tasks apply from the next occurrence on. Also lists the next 14+ days of events from your Google calendars, read-only, with a Tasks/Everything filter. |
 | Development | Connects your GitHub account, groups open issues by selected personal repository, and creates issues with labels and assignees. |
-| Settings | Opens Appearance to choose System, Light, or Dark; also shows the app name/version. |
+| Settings | Opens Appearance to choose System, Light, or Dark; chooses the default calendar for tasks and which calendars appear in Tasks; shows the app name/version. |
 
 ## Run on this machine
 
@@ -241,8 +241,10 @@ Local verification completed on **2026-10-09**:
   connection was removed, and recovered through Retry after reconnection.
 - Switching pages and returning Home preserved the loaded response.
 
-**Physical-phone verification is still pending.** The USB workflow is prepared;
-the initial verification used the emulator. CI is configured in
+**Physical-phone verification:** the Tasks tab was checked over USB on a
+Motorola edge 60 pro (Android 16) with a real Google account: tasks and their
+events appeared in Google Calendar, and Home loaded through `adb reverse`.
+Earlier checks used the emulator. CI is configured in
 [`.github/workflows/check.yml`](.github/workflows/check.yml).
 
 The default server address is `127.0.0.1:8080`. Routes:

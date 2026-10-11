@@ -80,7 +80,7 @@ fun DevelopmentScreen(state: DevelopmentState, actions: DevelopmentActions, onOp
                 } }
             }
             if (profile == null && state.sessionAvailable) {
-                item { Notice("GitHub is unavailable", "Connect to the internet to load your GitHub account and issues.") {
+                item { PandoraNotice("GitHub is unavailable", "Connect to the internet to load your GitHub account and issues.") {
                     Button(onClick = actions.refresh, enabled = !state.loading) { Text("Retry") }
                     TextButton(onClick = actions.disconnect, enabled = !state.loading) { Text("Disconnect") }
                 } }
@@ -103,7 +103,7 @@ fun DevelopmentScreen(state: DevelopmentState, actions: DevelopmentActions, onOp
                     }
                 } }
                 if (state.offline) {
-                    item { Notice("GitHub is unavailable", "Connect to the internet to load issues and create a new issue.") {
+                    item { PandoraNotice("GitHub is unavailable", "Connect to the internet to load issues and create a new issue.") {
                         Button(onClick = actions.refresh, enabled = !state.loading) { Text("Retry") }
                     } }
                     state.error?.let { message -> item { ErrorText(message) } }
@@ -135,7 +135,7 @@ fun DevelopmentScreen(state: DevelopmentState, actions: DevelopmentActions, onOp
 
 @Composable
 private fun ConnectCard(state: DevelopmentState, actions: DevelopmentActions, onOpenUrl: (String) -> Unit) {
-    Notice("Your repositories, on the go",
+    PandoraNotice("Your repositories, on the go",
         "Connect your GitHub account to browse open issues and create new ones in your personal repositories.") {
         val authorization = state.authorization
         if (authorization != null) {
@@ -187,18 +187,6 @@ private fun RepositorySection(repo: GitHubRepository, state: DevelopmentState, a
                 modifier = Modifier.padding(horizontal = PandoraSpacing.small)) {
                 Text(if (repo.name in state.loadingMore) "Loading…" else "Load more")
             }
-        }
-    }
-}
-
-/** A tonal card with a title, explanation, and its actions stacked below. */
-@Composable
-private fun Notice(title: String, body: String, content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.extraLarge) {
-        Column(Modifier.padding(PandoraSpacing.extraLarge), verticalArrangement = Arrangement.spacedBy(PandoraSpacing.medium)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            content()
         }
     }
 }
