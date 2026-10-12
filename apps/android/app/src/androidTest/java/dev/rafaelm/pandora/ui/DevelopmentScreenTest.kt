@@ -1,5 +1,6 @@
 package dev.rafaelm.pandora.ui
 
+import android.content.ClipboardManager
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -32,15 +33,23 @@ class DevelopmentScreenTest {
         compose.onNodeWithText("Connect GitHub").assertIsNotEnabled()
         compose.onNodeWithText("GitHub setup is pending.", substring = true).assertIsDisplayed()
     }
-    @Test fun dashboardGroupsIssuesAndStartsCreationForTheSelectedRepository() {
-        var chosen: GitHubRepository? = null
+    @Test fun copyGitHubCodeCopiesTheDisplayedCode() {
+        val authorization = GitHubAuthorization("ABCD-EFGH", "https://github.com/login/device", Long.MAX_VALUE)
+        compose.setContent { PandoraTheme { DevelopmentScreen(DevelopmentState(connecting = true, authorization = authorization), DevelopmentActions(), {}) } }
+        compose.onNodeWithContentDescription("Copy GitHub code").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            val clipboard = compose.activity.getSystemService(ClipboardManager::class.java)
+            assertEquals("ABCD-EFGH", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+        }
+    }
+    @Test fun dashboardGroupsIssuesByRepositoryWithoutCreatingThere() {
         val state = DevelopmentState(profile = profile, repositories = listOf(repo), selected = setOf(repo.name), issues = mapOf(repo.name to GitHubIssuePage(listOf(GitHubIssue(7, "Fix a bug", "https://github.com/owner/pandora/issues/7")), null)))
-        compose.setContent { PandoraTheme { DevelopmentScreen(state, DevelopmentActions(newIssue = { chosen = it }), {}) } }
+        compose.setContent { PandoraTheme { DevelopmentScreen(state, DevelopmentActions(), {}) } }
         compose.onNodeWithText("@owner").assertIsDisplayed()
         compose.onNodeWithText("owner/pandora").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("new_issue:pandora").performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(repo, chosen) }
         compose.onNodeWithText("Fix a bug").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("New issue").assertDoesNotExist()
     }
     @Test fun offlineShowsEmptyStateWithoutIssueCreation() {
         val state = DevelopmentState(profile = profile, repositories = listOf(repo), selected = setOf(repo.name), offline = true)

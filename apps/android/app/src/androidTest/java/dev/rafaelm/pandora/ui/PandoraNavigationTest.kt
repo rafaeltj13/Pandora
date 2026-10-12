@@ -13,8 +13,13 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.rafaelm.pandora.data.GitHubOwner
+import dev.rafaelm.pandora.data.GitHubProfile
+import dev.rafaelm.pandora.data.GitHubRepository
 import dev.rafaelm.pandora.data.Module
 import dev.rafaelm.pandora.data.ServerStatus
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -66,12 +71,44 @@ class PandoraNavigationTest {
     }
 
     @Test
-    fun dockAddButtonDoesNothingYet() {
-        render()
-        compose.onNodeWithTag("dock_add").assertIsDisplayed().performClick()
+    fun dockAddSheetStartsATaskOnTheTasksPage() {
+        var started = false
+        compose.setContent {
+            PandoraTheme { PandoraApp(welcome, onRetry = {}, tasks = TasksState(access = true, loaded = true),
+                tasksActions = TasksActions(newTask = { started = true })) }
+        }
+        compose.onNodeWithTag("dock_add").performClick()
+        compose.onNodeWithTag("create_option_issue").assertIsDisplayed()
+        compose.onNodeWithTag("create_option_task").performClick()
 
+        compose.onNodeWithTag("create_sheet").assertDoesNotExist()
+        compose.onNodeWithTag("navigation_tasks").assertIsSelected()
+        compose.runOnIdle { assertTrue(started) }
+    }
+
+    @Test
+    fun dockAddSheetPicksTheRepositoryForANewIssue() {
+        val repo = GitHubRepository(1, "pandora", "owner/pandora", true, "https://github.com/owner/pandora", GitHubOwner("owner"), true, false)
+        var chosen: GitHubRepository? = null
+        compose.setContent {
+            PandoraTheme { PandoraApp(welcome, onRetry = {}, modules = setOf(Module.DEVELOPMENT),
+                development = DevelopmentState(profile = GitHubProfile("owner", "Owner", "", "https://github.com/owner"), repositories = listOf(repo)),
+                developmentActions = DevelopmentActions(newIssue = { chosen = it })) }
+        }
+        compose.onNodeWithTag("dock_add").performClick()
+        compose.onNodeWithTag("create_option_task").assertDoesNotExist()
+        compose.onNodeWithTag("create_option_issue").performClick()
+        compose.onNodeWithTag("create_repository:pandora").performClick()
+
+        compose.onNodeWithTag("navigation_development").assertIsSelected()
+        compose.runOnIdle { assertEquals(repo, chosen) }
+    }
+
+    @Test
+    fun dockHidesAddWithoutModules() {
+        compose.setContent { PandoraTheme { PandoraApp(welcome, onRetry = {}, modules = emptySet()) } }
         compose.onNodeWithTag("navigation_home").assertIsSelected()
-        compose.onNodeWithText("Welcome to Pandora").assertIsDisplayed()
+        compose.onNodeWithTag("dock_add").assertDoesNotExist()
     }
 
     @Test

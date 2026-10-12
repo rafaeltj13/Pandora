@@ -83,7 +83,6 @@ class TasksScreenTest {
     fun withoutAccessTheScreenAsksForCalendarPermission() {
         compose.setContent { PandoraTheme { TasksScreen(TasksState(), TasksActions(), clock) } }
         compose.onNodeWithTag("allow_calendar").assertIsDisplayed()
-        compose.onNodeWithTag("new_task").assertDoesNotExist()
     }
 
     @Test

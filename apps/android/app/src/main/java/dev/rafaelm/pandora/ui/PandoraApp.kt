@@ -2,7 +2,18 @@ package dev.rafaelm.pandora.ui
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
@@ -24,6 +35,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +48,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -101,8 +116,17 @@ fun PandoraApp(
         }
     }
 
-    // Settings is a sub-page opened from the header of each dock page, so the dock hides there.
-    val showDock = Destination.entries.any(::isSelected)
+    // Settings is a sub-page opened from the header of each dock page, so the dock hides there,
+    // and on the full-screen task and issue forms.
+    val showDock = Destination.entries.any(::isSelected) && tasks.editor == null && development.editor == null
+    var creating by rememberSaveable { mutableStateOf(false) }
+    // A task chosen from the add sheet opens once the Tasks page has loaded its calendars.
+    var pendingTask by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(pendingTask, tasks.access, tasks.loaded, tasks.loading) {
+        if (!pendingTask) return@LaunchedEffect
+        if (tasks.loaded && !tasks.loading) { pendingTask = false; tasksActions.newTask() }
+        else if (!tasks.access) pendingTask = false
+    }
     val openSettings = { navController.navigate(PandoraRoute.Settings) { launchSingleTop = true } }
     // Pages draw under the dock and pad their scrolling content by LocalDockClearance.
     Box(Modifier.fillMaxSize()) {
@@ -111,6 +135,10 @@ fun PandoraApp(
                 navController = navController,
                 startDestination = PandoraRoute.Home,
                 modifier = Modifier.fillMaxSize(),
+                enterTransition = { if (targetState.isSubPage()) slideIn(forward = true) else fadeThroughIn() },
+                exitTransition = { if (targetState.isSubPage()) slideOut(forward = true) else fadeThroughOut() },
+                popEnterTransition = { if (initialState.isSubPage()) slideIn(forward = false) else fadeThroughIn() },
+                popExitTransition = { if (initialState.isSubPage()) slideOut(forward = false) else fadeThroughOut() },
             ) {
                 composable<PandoraRoute.Home> {
                     WelcomeScreen(state, onOpenSettings = openSettings, showModulesHint = modules.isEmpty(), onRetry = onRetry)
@@ -131,19 +159,55 @@ fun PandoraApp(
                 }
             }
         }
-        if (showDock) PandoraDock(destinations, ::isSelected, ::navigate, Modifier.align(Alignment.BottomCenter))
+        AnimatedVisibility(showDock, Modifier.align(Alignment.BottomCenter),
+            enter = fadeIn(tween(FadeInMillis, FadeOutMillis)), exit = fadeOut(tween(FadeOutMillis))) {
+            PandoraDock(destinations, ::isSelected, ::navigate, onAdd = if (modules.isEmpty()) null else ({ creating = true }))
+        }
+    }
+    if (creating) {
+        CreateSheet(modules, development, onDismiss = { creating = false },
+            onNewTask = { navigate(Destination.TASKS); pendingTask = true },
+            onNewIssue = { repo -> navigate(Destination.DEVELOPMENT); developmentActions.newIssue(repo) },
+            onOpenDevelopment = { navigate(Destination.DEVELOPMENT) })
     }
 }
+
+/*
+ * Material motion: dock pages fade through (the old page fades out quickly, then the new one fades in
+ * while settling from a slight zoom); Settings and Appearance slide along the x-axis as sub-pages.
+ */
+private const val FadeOutMillis = 90
+private const val FadeInMillis = 210
+private const val SlideMillis = 300
+
+private fun NavBackStackEntry.isSubPage() =
+    destination.hasRoute(PandoraRoute.Settings::class) || destination.hasRoute(PandoraRoute.Appearance::class)
+
+private fun fadeThroughIn(): EnterTransition =
+    fadeIn(tween(FadeInMillis, FadeOutMillis, LinearOutSlowInEasing)) +
+        scaleIn(tween(FadeInMillis, FadeOutMillis, LinearOutSlowInEasing), initialScale = 0.96f)
+
+private fun fadeThroughOut(): ExitTransition = fadeOut(tween(FadeOutMillis))
+
+/** Sub-pages enter from the end and leave toward it; [forward] is false when going back. */
+private fun slideIn(forward: Boolean): EnterTransition =
+    slideInHorizontally(tween(SlideMillis, easing = FastOutSlowInEasing)) { if (forward) it / 10 else -it / 10 } +
+        fadeIn(tween(FadeInMillis, FadeOutMillis, LinearOutSlowInEasing))
+
+private fun slideOut(forward: Boolean): ExitTransition =
+    slideOutHorizontally(tween(SlideMillis, easing = FastOutSlowInEasing)) { if (forward) -it / 10 else it / 10 } +
+        fadeOut(tween(FadeOutMillis))
 
 private val DockHeight = 64.dp
 private val DockClearance = DockHeight + PandoraSpacing.medium * 2
 
-/** Floating dock: page tabs in a pill sized to its tabs, with a separate round add button. */
+/** Floating dock: page tabs in a pill sized to its tabs, with a separate round add button when anything can be created. */
 @Composable
 private fun PandoraDock(
     destinations: List<Destination>,
     isSelected: (Destination) -> Boolean,
     navigate: (Destination) -> Unit,
+    onAdd: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -168,9 +232,8 @@ private fun PandoraDock(
                 }
             }
         }
-        // Placeholder: the add action has no behavior yet.
-        Surface(
-            onClick = {},
+        if (onAdd != null) Surface(
+            onClick = onAdd,
             modifier = Modifier.size(DockHeight).testTag("dock_add"),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,

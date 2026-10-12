@@ -1,5 +1,6 @@
 package dev.rafaelm.pandora.ui
 
+import android.content.ClipData
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,11 +13,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.rafaelm.pandora.R
 import dev.rafaelm.pandora.data.*
+import kotlinx.coroutines.launch
 
 data class DevelopmentActions(
     val refresh: () -> Unit = {},
@@ -135,18 +139,29 @@ fun DevelopmentScreen(state: DevelopmentState, actions: DevelopmentActions, onOp
 
 @Composable
 private fun ConnectCard(state: DevelopmentState, actions: DevelopmentActions, onOpenUrl: (String) -> Unit) {
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
     PandoraNotice("Your repositories, on the go",
         "Connect your GitHub account to browse open issues and create new ones in your personal repositories.") {
         val authorization = state.authorization
         if (authorization != null) {
             Text("Enter this code on GitHub:")
             Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.large) {
-                SelectionContainer {
-                    Text(authorization.userCode, style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.padding(horizontal = PandoraSpacing.large, vertical = PandoraSpacing.small).testTag("github_device_code"))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SelectionContainer {
+                        Text(authorization.userCode, style = MaterialTheme.typography.headlineMedium,
+                            modifier = Modifier.padding(horizontal = PandoraSpacing.large, vertical = PandoraSpacing.small).testTag("github_device_code"))
+                    }
+                    IconButton(onClick = {
+                        scope.launch {
+                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("GitHub device code", authorization.userCode)))
+                        }
+                    }) {
+                        Icon(painterResource(R.drawable.ic_content_copy), contentDescription = "Copy GitHub code")
+                    }
                 }
             }
-            Text("Open GitHub, enter the code, and approve access. Return here to finish connecting. You can long-press the code to copy it.",
+            Text("Copy the code, open GitHub, and paste it to approve access. Return here to finish connecting.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = { onOpenUrl(authorization.verificationUrl) }) { Text("Open GitHub") }
             if (state.connecting) {
@@ -169,11 +184,7 @@ private fun ConnectCard(state: DevelopmentState, actions: DevelopmentActions, on
 @Composable
 private fun RepositorySection(repo: GitHubRepository, state: DevelopmentState, actions: DevelopmentActions, onOpenUrl: (String) -> Unit) {
     PandoraSection(null) {
-        PandoraListItem(repo.full_name, supporting = if (repo.private) "Private repository" else "Public repository",
-            trailing = {
-                FilledTonalButton(onClick = { actions.newIssue(repo) }, enabled = !state.loading && !state.creating,
-                    modifier = Modifier.testTag("new_issue:${repo.name}")) { Text("New issue") }
-            })
+        PandoraListItem(repo.full_name, supporting = if (repo.private) "Private repository" else "Public repository")
         val page = state.issues[repo.name]
         if (page != null) HorizontalDivider(Modifier.padding(horizontal = PandoraSpacing.large), color = MaterialTheme.colorScheme.outlineVariant)
         if (page != null && page.items.isEmpty()) PandoraListItem("No open issues on this page.")
@@ -261,9 +272,9 @@ private fun MultiPicker(title: String, choices: List<String>, selected: Set<Stri
                 val filtered = choices.filter { it.contains(query, ignoreCase = true) }
                 if (filtered.isEmpty()) item { Text("No matches", modifier = Modifier.padding(PandoraSpacing.medium)) }
                 items(filtered, key = { it }) { choice ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = PandoraSpacing.extraSmall)) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = PandoraSpacing.extraSmall), verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = choice in selection, enabled = choice in selection || selection.size < limit, onCheckedChange = { checked -> selection = if (checked) selection + choice else selection - choice })
-                        Column(Modifier.padding(top = PandoraSpacing.medium)) { Text(choice); descriptions[choice]?.let { Text(it, style = MaterialTheme.typography.labelSmall) } }
+                        Column { Text(choice); descriptions[choice]?.let { Text(it, style = MaterialTheme.typography.labelSmall) } }
                     }
                 }
             }

@@ -1,0 +1,10 @@
+<resources>
+  <style name="Theme.Pandora" parent="android:style/Theme.Material.NoActionBar">
+    <item name="android:fontFamily">sans</item>
+    <item name="android:windowLightStatusBar">false</item>
+    <item name="android:windowActionModeOverlay">true</item>
+    <item name="android:windowBackground">@drawable/pandora_splash</item>
+    <item name="android:windowSplashScreenBackground">@color/pandora_splash_background</item>
+    <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+  </style>
+</resources>

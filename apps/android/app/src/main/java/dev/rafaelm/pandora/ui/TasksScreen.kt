@@ -146,7 +146,7 @@ private fun TaskList(state: TasksState, actions: TasksActions, clock: Clock, onO
     val today = LocalDate.now(clock)
     PandoraScaffold(stringResource(R.string.nav_tasks), onOpenSettings = onOpenSettings) { bottom ->
         Box(Modifier.fillMaxSize().testTag("tasks_screen")) {
-            LazyColumn(contentPadding = PaddingValues(PandoraSpacing.large, PandoraSpacing.large, PandoraSpacing.large, 96.dp + bottom),
+            LazyColumn(contentPadding = PaddingValues(PandoraSpacing.large, PandoraSpacing.large, PandoraSpacing.large, PandoraSpacing.large + bottom),
                 verticalArrangement = Arrangement.spacedBy(PandoraSpacing.extraLarge), modifier = Modifier.fillMaxSize()) {
                 if (!state.access) {
                     item { PandoraNotice("Connect your calendar",
@@ -199,11 +199,6 @@ private fun TaskList(state: TasksState, actions: TasksActions, clock: Clock, onO
                     Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(horizontal = PandoraSpacing.large))
                 } }
-            }
-            if (state.access && state.taskCalendars.isNotEmpty()) {
-                FloatingActionButton(onClick = actions.newTask, modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = bottom).padding(PandoraSpacing.large).testTag("new_task")) {
-                    Icon(painterResource(R.drawable.ic_add), contentDescription = "New task")
-                }
             }
         }
     }
