@@ -1,31 +1,7 @@
-import java.net.URI
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-}
-
-val debugApiUrl = providers.gradleProperty("pandora.apiUrl")
-    .orElse("http://localhost:8080").get().trimEnd('/')
-val releaseApiUrl = providers.gradleProperty("pandora.releaseApiUrl")
-    .orElse("").get().trimEnd('/')
-
-fun quotedUrl(value: String): String {
-    if (value.isNotEmpty()) {
-        val uri = URI(value)
-        require(uri.scheme in listOf("http", "https") && !uri.host.isNullOrEmpty()) {
-            "Pandora API URL must be an absolute HTTP(S) URL"
-        }
-        require(uri.userInfo == null && uri.query == null && uri.fragment == null) {
-            "Pandora API URL cannot include credentials, a query, or a fragment"
-        }
-    }
-    return "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
-}
-
-require(releaseApiUrl.isEmpty() || releaseApiUrl.startsWith("https://")) {
-    "The release API URL must use HTTPS"
 }
 
 val githubClientId = providers.gradleProperty("pandora.githubClientId").orElse("").get().trim()
@@ -52,13 +28,9 @@ android {
     }
 
     buildTypes {
-        debug {
-            buildConfigField("String", "API_BASE_URL", quotedUrl(debugApiUrl))
-        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            buildConfigField("String", "API_BASE_URL", quotedUrl(releaseApiUrl))
         }
     }
 
@@ -69,14 +41,6 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-    sourceSets.getByName("test").resources.srcDir("../../../packages/contracts")
-}
-
-// This starter has no deployed API. Require an explicit URL for release builds.
-androidComponents {
-    beforeVariants(selector().withBuildType("release")) { variant ->
-        variant.enable = releaseApiUrl.isNotEmpty()
     }
 }
 

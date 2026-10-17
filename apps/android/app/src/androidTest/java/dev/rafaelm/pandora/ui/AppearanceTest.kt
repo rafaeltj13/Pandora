@@ -58,7 +58,7 @@ class AppearanceTest {
                         theme = if (appearance.mode.isDark()) appearance.darkTheme else appearance.lightTheme) {
                         val color = MaterialTheme.colorScheme.background
                         SideEffect { background = color }
-                        PandoraApp(WelcomeState.Error, {}, appearance = appearance, onThemeModeChange = model::setMode,
+                        PandoraApp(appearance = appearance, onThemeModeChange = model::setMode,
                             onThemeChange = model::setTheme, onBothThemesChange = model::setBothThemes)
                     }
                 }

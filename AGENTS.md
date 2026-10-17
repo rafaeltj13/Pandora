@@ -19,15 +19,11 @@ Channel both "measure twice, cut once" and "yagni". Fight scope creep. Try ti ho
   `PandoraListItem` (row; clickable rows get a chevron). Use
   `MaterialTheme` colors, type, shapes, and `PandoraSpacing` instead of raw
   values. The Appearance screen keeps its own custom layout.
-- `apps/server`: Rust process startup, configuration, logging, and shutdown.
-- `packages/api`: reusable API routes and response types. Inject runtime
-  dependencies here when persistence or authentication is added.
-- `packages/contracts`: generated OpenAPI, owned by the Rust API. Run
-  `make contracts` after an API change; never edit generated JSON by hand.
-- Use Cargo and the committed Gradle wrapper. Root Make commands coordinate
-  them. Future web code belongs in `apps/web` and consumes the HTTP contract.
-- HTTP exceptions belong only in Android debug resources. Releases require
-  an explicit HTTPS API URL and separate signing configuration.
+- There is no Pandora backend. Each module talks directly to the service it
+  integrates (Android Calendar provider, GitHub over HTTPS) from a repository
+  in `data/`. Do not add a server unless we ask for one.
+- Use the committed Gradle wrapper. Root Make commands coordinate it.
+- Releases require HTTPS-only traffic and separate signing configuration.
 - Run `make check` for implementation changes and `make test-device` for
   changes to screen behavior. Do not claim phone verification without a device.
 - Do not commit toolchain downloads, SDKs, local config, APKs, or credentials.
@@ -40,7 +36,7 @@ We need to be on the same page with terminology. When communicating, use this la
 - we, us and maitainers mean the people building the platform, who are you talking now.
 - user means the person using the pandora platform.
 - client means the android app.
-- api means the backend for the platform.
+- services mean the external platforms a module connects to.
 - project means the pandora platform.
 
 ### Development approaches

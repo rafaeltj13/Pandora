@@ -6,7 +6,7 @@ if [[ "${PANDORA_ENV_READY:-}" != 1 ]]; then
 fi
 
 missing=0
-for command in java cargo rustc sdkmanager adb emulator make cc; do
+for command in java sdkmanager adb emulator make; do
     if command -v "$command" >/dev/null 2>&1; then
         printf '%-12s %s\n' "$command" "$(command -v "$command")"
     else
@@ -19,6 +19,5 @@ if (( missing )); then
     exit 1
 fi
 java -version
-rustc --version
 emulator -accel-check
 adb devices -l

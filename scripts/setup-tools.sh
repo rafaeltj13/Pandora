@@ -28,16 +28,6 @@ if [[ ! -x "$TOOL_DIR/jdk-21/bin/java" ]] && [[ -z "${JAVA_HOME:-}" ]]; then
     tar -xzf "$DOWNLOAD_DIR/jdk-21.tar.gz" -C "$TOOL_DIR/jdk-21" --strip-components=1
 fi
 
-if [[ ! -x "$HOME/.cargo/bin/rustup" ]]; then
-    echo 'Installing Rust in your user directory...'
-    curl --fail --location --silent --show-error 'https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init.sha256' -o "$DOWNLOAD_DIR/rustup-init.sha256"
-    RUSTUP_SHA=$(cut -d ' ' -f 1 "$DOWNLOAD_DIR/rustup-init.sha256")
-    download 'https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init' "$DOWNLOAD_DIR/rustup-init" "$RUSTUP_SHA"
-    chmod +x "$DOWNLOAD_DIR/rustup-init"
-    "$DOWNLOAD_DIR/rustup-init" -y --profile minimal --default-toolchain stable --no-modify-path
-fi
-"$HOME/.cargo/bin/rustup" toolchain install stable --profile minimal --component rustfmt --component clippy
-
 if [[ ! -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]]; then
     echo 'Installing Android SDK command-line tools...'
     download 'https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip' \

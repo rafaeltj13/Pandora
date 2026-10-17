@@ -77,8 +77,6 @@ private enum class Destination(
 
 @Composable
 fun PandoraApp(
-    state: WelcomeState,
-    onRetry: () -> Unit,
     development: DevelopmentState = DevelopmentState(),
     developmentActions: DevelopmentActions = DevelopmentActions(),
     appearance: AppearancePreferences = AppearancePreferences(),
@@ -141,7 +139,7 @@ fun PandoraApp(
                 popExitTransition = { if (initialState.isSubPage()) slideOut(forward = false) else fadeThroughOut() },
             ) {
                 composable<PandoraRoute.Home> {
-                    WelcomeScreen(state, onOpenSettings = openSettings, showModulesHint = modules.isEmpty(), onRetry = onRetry)
+                    WelcomeScreen(onOpenSettings = openSettings, showModulesHint = modules.isEmpty())
                 }
                 composable<PandoraRoute.Tasks> {
                     TasksScreen(tasks, tasksActions, onOpenSettings = openSettings)

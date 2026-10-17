@@ -14,7 +14,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import dev.rafaelm.pandora.data.HttpStatusRepository
 import dev.rafaelm.pandora.data.DirectGitHubRepository
 import dev.rafaelm.pandora.data.GitHubConfiguration
 import dev.rafaelm.pandora.data.DevelopmentStorage
@@ -34,11 +33,9 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import dev.rafaelm.pandora.ui.PandoraApp
 import dev.rafaelm.pandora.ui.PandoraTheme
 import dev.rafaelm.pandora.ui.colors
-import dev.rafaelm.pandora.ui.WelcomeViewModel
 import dev.rafaelm.pandora.ui.isDark
 
 class MainActivity : ComponentActivity() {
-    private val repository by lazy { HttpStatusRepository(BuildConfig.API_BASE_URL) }
     private val appearanceRepository by lazy { AppearanceRepository(applicationContext) }
     private val modulesRepository by lazy { ModulesRepository(applicationContext) }
 
@@ -69,8 +66,6 @@ class MainActivity : ComponentActivity() {
                     window.setBackgroundDrawable(backgroundColor.toDrawable())
                 }
                 val modules by modulesRepository.enabled.collectAsStateWithLifecycle()
-                val model: WelcomeViewModel = viewModel(factory = WelcomeViewModel.Factory(repository))
-                val state by model.state.collectAsStateWithLifecycle()
                 val developmentModel: DevelopmentViewModel = viewModel(factory = DevelopmentViewModel.Factory(developmentRepository))
                 val developmentState by developmentModel.state.collectAsStateWithLifecycle()
                 val tasksModel: TasksViewModel = viewModel(factory = TasksViewModel.Factory(tasksRepository))
@@ -82,7 +77,6 @@ class MainActivity : ComponentActivity() {
                 val tasksOn = Module.TASKS in modules
                 LaunchedEffect(tasksOn) { if (!tasksOn) tasksModel.stop() }
                 PandoraApp(
-                    state, onRetry = model::retry,
                     development = developmentState, developmentActions = DevelopmentActions.from(developmentModel),
                     appearance = appearance, onThemeModeChange = appearanceModel::setMode,
                     onThemeChange = appearanceModel::setTheme, onBothThemesChange = appearanceModel::setBothThemes,

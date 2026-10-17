@@ -1,30 +1,25 @@
 # Pandora
 
-A minimal native Android app and Rust backend, organized like the Better-T-Stack
-projects in this workspace. The first screen loads a welcome message from the
-server and handles loading, connection failures, and Retry. A bottom navigation
-bar switches between Home, Tasks, Development, and Settings.
+A native Android app that brings your productivity services into one place.
+Pandora has no backend of its own: each module talks directly to the service it
+connects to (Google Calendar through Android, GitHub over HTTPS). A floating
+dock switches between Home and the modules turned on in Settings.
 
 ## What has been implemented
 
-- An `apps/` and `packages/` monorepo with native Gradle and Cargo builds,
-  coordinated by root Make commands.
 - A Kotlin + Jetpack Compose Android app named **Pandora**, application ID
-  `dev.rafaelm.pandora`, supporting Android 8.0/API 26 and newer.
-- A Rust/Axum server with logging, configurable binding, graceful shutdown,
-  health checks, and a versioned welcome endpoint.
-- Rust-generated OpenAPI, plus a test that checks Android's response model
-  against that contract. This is the shared boundary for a future web client.
-- Typed Android routes, a bottom navigation bar, saved navigation state,
-  Android Back handling, and a Home ViewModel retained across tab switches.
-- User-local Rust, Java, Android SDK and emulator setup, with USB port
-  forwarding for running the same debug app on a phone.
-- Rust and Android automated checks, emulator UI tests, and a GitHub Actions
-  workflow for builds and checks.
+  `dev.rafaelm.pandora`, supporting Android 8.0/API 26 and newer, built with
+  the committed Gradle wrapper and coordinated by root Make commands.
+- Typed Android routes, a floating dock, saved navigation state, and Android
+  Back handling.
+- User-local Java, Android SDK and emulator setup, with USB install for running
+  the same debug app on a phone.
+- Android automated checks, emulator UI tests, and a GitHub Actions workflow
+  for builds and checks.
 
 | App page | Current behavior |
 | --- | --- |
-| Home | Loads the Rust welcome message; shows loading, errors, Retry and Refresh. |
+| Home | Shows the Pandora welcome card; points to Settings when every module is off. |
 | Tasks | Creates tasks (title, date, time and duration or all day, optional description, optional repeat) as tagged Google Calendar events, so they live in the calendar and survive reinstalls. Edits to repeating tasks apply from the next occurrence on. Also lists the next 14+ days of events from your Google calendars, read-only, with a Tasks/Everything filter. |
 | Development | Connects your GitHub account, groups open issues by selected personal repository, and creates issues with labels and assignees. |
 | Settings | Opens Appearance to choose System, Light, or Dark; chooses the default calendar for tasks and which calendars appear in Tasks; shows the app name/version. |
@@ -39,14 +34,12 @@ cd /home/rafaelm/Documents/code/pandora
 make dev
 ```
 
-This starts or reuses the local server, starts an emulator if no authorized
-device is available, waits for Android to boot, builds and installs the APK,
-sets up port forwarding, and opens Pandora. Use the bottom bar to switch pages.
+This starts an emulator if no authorized device is available, waits for
+Android to boot, builds and installs the APK, and opens Pandora.
 
-Leave this terminal running while using the app. Ctrl-C stops only processes
-started by this command; a previously running server or emulator stays open.
-After changing code, stop and rerun `make dev`, or use `make android` if the
-server and emulator are already running. Live reload is not configured.
+Leave this terminal running while using the app. Ctrl-C stops an emulator
+started by this command; a previously running emulator stays open. After
+changing code, run `make android` to reinstall. Live reload is not configured.
 
 If both an emulator and phone are connected, run `make devices` and select one:
 
@@ -55,33 +48,24 @@ env ANDROID_SERIAL=YOUR_DEVICE_SERIAL make dev
 ```
 
 The debug APK is built at
-`apps/android/app/build/outputs/apk/debug/app-debug.apk`. Logs for the server
-and emulator started by `make dev` are in `.local/server.log` and
-`.local/emulator.log`.
+`apps/android/app/build/outputs/apk/debug/app-debug.apk`. The log for an
+emulator started by `make dev` is `.local/emulator.log`.
 
 ## Structure
 
 ```text
 apps/
   android/             Kotlin + Compose app, Gradle wrapper and version catalog
-  server/              Rust/Axum process, environment and shutdown
-packages/
-  api/                 Rust routes, response types and API tests
-  contracts/           Generated OpenAPI contract for current/future clients
 scripts/               Toolchain setup and local development commands
-Cargo.toml             Rust workspace
 Makefile               Root workflow
 ```
 
 Android's UI/data separation is inside its app module. Reusable Android modules
-can be extracted when needed. A future web frontend can live in `apps/web` and
-consume `packages/contracts/openapi.json`; it need not share a runtime or UI
-framework with Android.
+can be extracted when needed.
 
 Android routes are typed serializable objects in `ui/navigation/PandoraRoute.kt`.
-`ui/PandoraApp.kt` owns the navigation graph, bottom bar, and screen insets;
-screens receive action callbacks. Home retains its ViewModel while switching
-tabs. Tab state is saved/restored, repeated taps do not duplicate destinations,
+`ui/PandoraApp.kt` owns the navigation graph, dock, and screen insets;
+screens receive action callbacks. Tab state is saved/restored, repeated taps do not duplicate destinations,
 and Android Back returns from another tab to Home. Add new routes to the route
 definitions and navigation graph as real features grow.
 
@@ -125,12 +109,10 @@ restoration.
 ## Local setup
 
 For a fresh Linux x86_64 machine, run the following from the repository root.
-The bootstrap expects Bash, Make, a C linker/compiler, curl, tar, unzip and
-Python 3. A usable `/dev/kvm` is needed for an accelerated emulator, along
+The bootstrap expects Bash, Make, curl, tar and unzip. A usable `/dev/kvm` is needed for an accelerated emulator, along
 with the host's graphics/display libraries for its window.
 
-This bootstrap targets Linux x86_64. It installs Rust to `~/.cargo` and
-`~/.rustup`, Temurin JDK 21 to `~/.local/share/pandora/jdk-21`, and the Android
+This bootstrap targets Linux x86_64. It installs Temurin JDK 21 to `~/.local/share/pandora/jdk-21`, and the Android
 SDK to `~/Android/Sdk`. It needs no sudo and does not change shell startup
 files. Downloaded JDK/command-line tools are checksum verified. SDK licenses
 are shown for acceptance during installation.
@@ -146,19 +128,13 @@ Toolchain downloads, SDKs, AVDs, local config, build outputs and logs are kept
 outside version control. Android Studio is optional; this setup uses the
 standalone SDK and a graphical emulator.
 
-To manage the processes separately, run the backend in one terminal:
-
-```sh
-make server
-```
-
-Open the emulator in a second terminal:
+To manage the emulator separately, open it in one terminal:
 
 ```sh
 make emulator
 ```
 
-After it boots, build, install and open the app from a third terminal:
+After it boots, build, install and open the app from another terminal:
 
 ```sh
 make android
@@ -170,14 +146,14 @@ If host GPU rendering has trouble, run `./scripts/emulator.sh -gpu software`.
 
 The scripts respect existing `JAVA_HOME` and `ANDROID_HOME`/`ANDROID_SDK_ROOT`.
 For tools outside Make, use `./scripts/with-env.sh <command>`; for example,
-`./scripts/with-env.sh cargo test --workspace`.
+`./scripts/with-env.sh adb devices`.
 
 ## Your phone
 
 1. Enable Developer options and USB debugging on your Android phone.
 2. Connect it with a data-capable USB cable and accept the debugging prompt.
 3. Run `make devices`. The device must show `device`, rather than `unauthorized`.
-4. Keep `make server` running and run `make android`.
+4. Run `make android`.
 
 When the emulator and phone are both connected, select a serial explicitly:
 
@@ -185,19 +161,15 @@ When the emulator and phone are both connected, select a serial explicitly:
 env ANDROID_SERIAL=YOUR_PHONE_SERIAL make android
 ```
 
-`make android` applies `adb reverse tcp:8080 tcp:8080` to the selected device,
-then installs and opens the debug APK. Both phone and emulator therefore use
-the same `http://localhost:8080` API URL. Repeat this command after reconnecting
-the phone. The phone supports Android 8.0/API 26 or newer. You can also use
-`env ANDROID_SERIAL=YOUR_PHONE_SERIAL make dev` to manage the backend and app
-from one terminal.
+`make android` installs and opens the debug APK on the selected device. The
+phone supports Android 8.0/API 26 or newer.
 
 If ADB reports insufficient USB permissions on Arch/CachyOS, the host needs
 the distribution's Android udev rules (typically `android-udev`), followed by
 reconnecting the phone. This is a system package; the bootstrap does not use
 sudo or modify system permissions.
 
-## API and checks
+## Checks
 
 Run `make help` to see the available commands. The main development commands
 are:
@@ -207,87 +179,31 @@ are:
 | `make setup` | Install user-local toolchains and Android SDK packages. |
 | `make doctor` | Check tools, KVM acceleration and connected devices. |
 | `make avd` | Create the virtual device if it does not already exist. |
-| `make dev` | Start the local stack and open Pandora on a selected device. |
-| `make server` | Run the Rust backend. |
+| `make dev` | Start/use an emulator and open Pandora on a selected device. |
 | `make emulator` | Open the graphical emulator. |
 | `make devices` | List device serials and authorization states. |
-| `make android` | Rebuild, install and launch the app; requires a running backend. |
-| `make build` | Build the Rust workspace and debug APK without launching either. |
-| `make check` | Run all host-side checks and build the debug APK. |
+| `make android` | Rebuild, install and launch the app. |
+| `make build` | Build the debug APK without launching it. |
+| `make check` | Run Android JVM tests and lint, and build the debug APK. |
 | `make test-device` | Run UI/navigation tests on a connected, booted device. |
-| `make contracts` | Regenerate the shared OpenAPI document after an API change. |
-| `make contracts-check` | Verify the generated OpenAPI document is current. |
-| `make fmt` | Format Rust source. |
 
-```sh
-make check
-make test-device
-make contracts
-```
-
-`make check` runs Rust formatting, Clippy, API tests, generated-contract
-consistency, Android JVM tests, Android lint, and a debug APK build.
 `make test-device` runs Compose screen tests on the selected connected device.
 The GitHub Actions workflow runs `make check` on pushes and pull requests;
-device tests remain a local check in this starter.
-
-Local verification completed on **2026-10-09**:
-
-- `make check` passed: Rust formatting/Clippy, three Rust tests, eight Android
-  JVM tests, generated-contract checks, Android lint and the debug APK build.
-- `make test-device` passed all five emulator UI tests, including switching
-  pages, repeated tab taps, Back navigation and selected-page restoration.
-- The live Android app loaded the Rust response, displayed an error when the
-  connection was removed, and recovered through Retry after reconnection.
-- Switching pages and returning Home preserved the loaded response.
+device tests remain a local check.
 
 **Physical-phone verification:** the Tasks tab was checked over USB on a
 Motorola edge 60 pro (Android 16) with a real Google account: tasks and their
-events appeared in Google Calendar, and Home loaded through `adb reverse`.
-Earlier checks used the emulator. CI is configured in
+events appeared in Google Calendar. CI is configured in
 [`.github/workflows/check.yml`](.github/workflows/check.yml).
 
-The default server address is `127.0.0.1:8080`. Routes:
-
-| Route | Purpose |
-| --- | --- |
-| `GET /health` | Process health |
-| `GET /api/v1/status` | Typed welcome response |
-| `GET /openapi.json` | Generated client contract |
-
-With the backend running, verify it from a terminal:
-
-```sh
-curl http://127.0.0.1:8080/health
-curl http://127.0.0.1:8080/api/v1/status
-```
-
-The health response is `{"status":"ok"}`. The welcome response contains
-`app`, `message` and `version`. Rust owns its schema; regenerate the contract
-with `make contracts` after changing API routes or response types.
-
-`PANDORA_BIND` changes the standalone server bind address; `RUST_LOG` controls
-logging. To run the complete local flow on another port:
-
-```sh
-env PANDORA_PORT=8081 make dev
-```
-
-Android permits local cleartext HTTP only in debug builds. Release variants
-are disabled until an explicit HTTPS endpoint is supplied:
-
-```sh
-./scripts/android.sh :app:assembleRelease -Ppandora.releaseApiUrl=https://YOUR_API_HOST
-```
-
-Release signing, hosting, and web UI are future work. The Android GitHub feature
-connects directly to one configured personal account; there are no general Pandora user accounts.
+Release signing and a web UI are future work. The Android GitHub feature
+connects directly to one configured personal account; there are no Pandora
+user accounts.
 
 ## Development tab and GitHub setup
 
 Development connects **directly from Android to GitHub over HTTPS**. It needs
 no hosted Pandora API, client secret, callback endpoint, or server token store.
-Home still uses the existing Pandora welcome API independently.
 
 The dashboard shows your GitHub avatar, name, username, profile link and
 Disconnect. Choose personal repositories from a searchable list; Pandora
@@ -332,9 +248,7 @@ supplied. No GitHub requests are made in that state.
 
 For `make dev` / `make android`, set those properties in your user-local
 `~/.gradle/gradle.properties` so subsequent builds keep the same configuration.
-Do not commit local configuration or tokens. Existing release requirements
-(explicit HTTPS welcome API URL and separate signing) still apply; that API is
-independent of the GitHub feature.
+Do not commit local configuration or tokens.
 
 5. Open Development and tap **Connect GitHub**. Pandora displays a GitHub device
    code. Copy it or remember it, tap **Open GitHub**, enter the code and approve
@@ -358,8 +272,8 @@ Use GitHub settings to revoke its authorization or installation.
 
 [GitHub device authorization](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app#using-the-device-flow-to-generate-a-user-access-token)
 and [token refresh](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/refreshing-user-access-tokens)
-document the provider endpoints. The Rust OpenAPI describes only Pandora's own
-API; GitHub's API is consumed by the Android repository.
+document the provider endpoints. GitHub's API is consumed by the Android
+repository.
 
 Live GitHub authorization and issue creation remain pending until the App is
 registered and configured. Automated tests use simulated GitHub responses;
@@ -370,12 +284,9 @@ physical-phone verification is separate from emulator checks.
 AGP 9.4.0, Gradle 9.6.0, Kotlin/Compose compiler 2.4.10, and the June 2026
 Compose BOM are pinned in the Android project. Compile/target SDK is 36;
 newer Compose releases that require a preview SDK are intentionally avoided.
-Navigation Compose 2.9.8 and Coil 3.3.0 are pinned for compatibility with this SDK. Rust uses
-the stable toolchain; `Cargo.lock` pins dependencies. Android dependency
-versions live in `apps/android/gradle/libs.versions.toml`.
+Navigation Compose 2.9.8 and Coil 3.3.0 are pinned for compatibility with this SDK.
+Android dependency versions live in `apps/android/gradle/libs.versions.toml`.
 
 Primary references: [Android architecture](https://developer.android.com/topic/architecture),
 [AGP compatibility](https://developer.android.com/build/releases/agp-9-4-0-release-notes),
-[Compose BOM](https://developer.android.com/develop/ui/compose/bom),
-[ADB forwarding](https://developer.android.com/develop/ui/views/layout/webapps/access-local-server),
-[Axum](https://docs.rs/axum/latest/axum/).
+[Compose BOM](https://developer.android.com/develop/ui/compose/bom).
