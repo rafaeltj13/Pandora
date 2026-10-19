@@ -41,6 +41,26 @@ class HttpGitHubTransportTest {
         assertEquals("2026-03-10", connection.getRequestProperty("X-GitHub-Api-Version"))
         assertTrue(response.hasNext)
     }
+    @Test fun `attachment upload uses token authentication required by the upload endpoint`() = runTest {
+        val connection = Connection(URL("https://uploads.github.com/user-attachments/assets?name=screen+shot.png&content_type=image%2Fpng&repository_id=42"))
+        val bytes = byteArrayOf(0, 1, 2, -1)
+        var requested: URL? = null
+        val response = HttpGitHubTransport { requested = it; connection }.upload(42, GitHubImage("screen shot.png", "image/png", bytes), "ghu_test")
+        assertArrayEquals(bytes, connection.sent.toByteArray())
+        assertEquals("token ghu_test", connection.getRequestProperty("Authorization"))
+        assertEquals("application/octet-stream", connection.getRequestProperty("Content-Type"))
+        assertEquals("application/vnd.github+json", connection.getRequestProperty("Accept"))
+        assertEquals("2026-03-10", connection.getRequestProperty("X-GitHub-Api-Version"))
+        val url = checkNotNull(requested)
+        assertTrue(url.query.contains("repository_id=42"))
+        assertTrue(url.query.contains("name=screen+shot.png"))
+        assertEquals("uploads.github.com", url.host)
+        assertEquals("/user-attachments/assets", url.path)
+        assertFalse(url.toString().contains("ghu_test"))
+        assertFalse(connection.instanceFollowRedirects)
+        assertTrue(connection.closed)
+        assertEquals(200, response.status)
+    }
     @Test fun `cleartext foreign hosts and URL credentials are rejected before opening a connection`() = runTest {
         var opened = false
         val transport = HttpGitHubTransport { opened = true; Connection(it) }

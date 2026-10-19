@@ -17,26 +17,41 @@ class DirectGitHubRepositoryTest {
     private val tokens = """{"access_token":"ghu_access","refresh_token":"ghr_refresh","expires_in":28800,"refresh_token_expires_in":15897600}"""
     private class Store : GitHubCredentialStore {
         var value: GitHubCredentials? = null
+        var uploadValue: GitHubUploadToken? = null
         val selections = mutableMapOf<String, Set<String>>()
         override fun credentials() = value
         override fun save(credentials: GitHubCredentials) { value = credentials }
         override fun clear() { value = null }
         override fun selected(login: String) = selections[login].orEmpty()
         override fun select(login: String, names: Set<String>) { selections[login] = names }
+        override fun uploadToken() = uploadValue
+        override fun saveUploadToken(token: GitHubUploadToken?) { uploadValue = token }
     }
     private data class Request(val url: String, val method: String, val body: String?, val token: String?, val time: Long)
+    private data class Upload(val repo: Long, val image: GitHubImage, val token: String?)
     private class Fixture(config: GitHubConfiguration = GitHubConfiguration("Iv1.test", "pandora", "owner")) {
         var now = 0L
         val store = Store()
         val requests = mutableListOf<Request>()
+        val uploads = mutableListOf<Upload>()
         var handler: suspend (Request) -> GitHubHttpResponse = { error("Unexpected request: ${it.url}") }
-        val repository = DirectGitHubRepository(config, store, GitHubTransport { url, method, body, token ->
-            val request = Request(url, method, body, token, now)
-            requests += request
-            handler(request)
-        }, clock = { now }, wait = { now += it })
+        var uploadHandler: suspend (Upload) -> GitHubHttpResponse = { error("Unexpected upload") }
+        private val transport = object : GitHubTransport {
+            override suspend fun request(url: String, method: String, body: String?, token: String?): GitHubHttpResponse {
+                val request = Request(url, method, body, token, now)
+                requests += request
+                return handler(request)
+            }
+            override suspend fun upload(repo: Long, image: GitHubImage, token: String?): GitHubHttpResponse {
+                val upload = Upload(repo, image, token)
+                uploads += upload
+                return uploadHandler(upload)
+            }
+        }
+        val repository = DirectGitHubRepository(config, store, transport, clock = { now }, wait = { now += it })
         fun connected(expiresAt: Long = Long.MAX_VALUE) {
             store.value = GitHubCredentials("ghu_old", "ghr_old", expiresAt, Long.MAX_VALUE, "Iv1.test", "owner")
+            store.uploadValue = GitHubUploadToken("github_pat_attachment", "Iv1.test", "owner")
         }
     }
     private fun response(body: String, status: Int = 200, next: Boolean = false) = GitHubHttpResponse(status, body, next)
@@ -123,6 +138,91 @@ class DirectGitHubRepositoryTest {
         try { f.repository.create("repo1", NewGitHubIssue("  Bug  ", "Details", listOf("bug"), listOf("owner"))); fail("Expected uncertain result") }
         catch (error: DevelopmentApiException) { assertEquals(504, error.status); assertTrue(error.message.contains("before retrying")) }
         assertEquals(1, f.requests.size)
+    }
+    @Test fun `image upload returns only a validated GitHub attachment URL`() = runTest {
+        val f = Fixture(); f.connected()
+        val bytes = byteArrayOf(1, 2, 3, 4)
+        val image = GitHubImage("screen shot.png", "image/png", bytes)
+        f.uploadHandler = { upload ->
+            assertEquals(123L, upload.repo)
+            assertEquals("github_pat_attachment", upload.token)
+            assertSame(image, upload.image)
+            response("""{"url":"https://github.com/user-attachments/assets/abc-123"}""")
+        }
+        assertEquals("https://github.com/user-attachments/assets/abc-123", f.repository.uploadImage(123, image))
+        assertEquals(1, f.uploads.size)
+    }
+    @Test fun `upload denials explain replacing expired tokens and checking repository permissions`() = runTest {
+        val f = Fixture(); f.connected()
+        val image = GitHubImage("screen.png", "image/png", byteArrayOf(1))
+        for (status in listOf(403, 404)) {
+            f.uploadHandler = { GitHubHttpResponse(status, "{}") }
+            try { f.repository.uploadImage(12, image); fail("Expected upload rejection") }
+            catch (error: DevelopmentApiException) {
+                assertEquals(status, error.status)
+                assertTrue(error.message.contains("selected repositories"))
+                assertTrue(error.message.contains("Issues read and write"))
+            }
+        }
+        f.uploadHandler = { GitHubHttpResponse(401, "{}") }
+        try { f.repository.uploadImage(12, image); fail("Expected expired token rejection") }
+        catch (error: DevelopmentApiException) { assertTrue(error.message.contains("Replace it")) }
+    }
+    @Test fun `image upload validates repository and image before network and surfaces auth failure`() = runTest {
+        val f = Fixture(); f.connected()
+        val image = GitHubImage("screen.png", "image/png", byteArrayOf(1))
+        for ((repo, badImage) in listOf(0L to image, 12L to GitHubImage("x.bin", "application/octet-stream", byteArrayOf(1)), 12L to GitHubImage("x.png", "image/png", ByteArray(GitHubImage.MAX_BYTES + 1)))) {
+            try { f.repository.uploadImage(repo, badImage); fail("Expected input validation") }
+            catch (error: DevelopmentApiException) { assertEquals(422, error.status) }
+        }
+        assertTrue(f.uploads.isEmpty())
+        f.uploadHandler = { GitHubHttpResponse(401, "{}") }
+        try { f.repository.uploadImage(12, image); fail("Expected auth rejection") }
+        catch (error: DevelopmentApiException) { assertEquals(401, error.status); assertFalse(error.message.contains("ghu_old")) }
+    }
+    @Test fun `uploads require a matching configured attachment token without refreshing app credentials`() = runTest {
+        val f = Fixture(); f.connected(expiresAt = 0)
+        f.store.uploadValue = null
+        val image = GitHubImage("screen.png", "image/png", byteArrayOf(1))
+        try { f.repository.uploadImage(12, image); fail("Expected missing attachment token") }
+        catch (error: DevelopmentApiException) { assertEquals(401, error.status) }
+        assertTrue(f.uploads.isEmpty()); assertTrue(f.requests.isEmpty())
+
+        f.store.uploadValue = GitHubUploadToken("github_pat_wrong", "another-client", "owner")
+        try { f.repository.uploadImage(12, image); fail("Expected mismatched attachment token") }
+        catch (error: DevelopmentApiException) { assertEquals(401, error.status) }
+        assertTrue(f.uploads.isEmpty())
+
+        f.store.uploadValue = GitHubUploadToken("github_pat_attachment", "Iv1.test", "owner")
+        f.uploadHandler = { assertEquals("github_pat_attachment", it.token); response("""{"url":"https://github.com/user-attachments/assets/asset"}""") }
+        assertEquals("https://github.com/user-attachments/assets/asset", f.repository.uploadImage(12, image))
+        assertTrue(f.requests.isEmpty()) // Uploads never refresh or send the App token.
+    }
+    @Test fun `attachment token syntax and clearing are enforced`() = runTest {
+        val f = Fixture(); f.connected()
+        f.repository.setUploadToken("  github_pat_valid_123  ")
+        assertEquals("github_pat_valid_123", f.store.uploadValue!!.token)
+        assertTrue(f.repository.hasUploadToken())
+        for (invalid in listOf("", "ghp_legacy", "github_pat_bad-token", "github_pat_").map { it.trim() }) {
+            try { f.repository.setUploadToken(invalid); fail("Expected invalid token rejection") }
+            catch (_: IllegalArgumentException) { }
+        }
+        f.repository.clearUploadToken(); assertNull(f.store.uploadValue); assertFalse(f.repository.hasUploadToken())
+    }
+    @Test fun `ordinary GitHub requests continue using the app token`() = runTest {
+        val f = Fixture(); f.connected()
+        f.handler = { request -> assertEquals("ghu_old", request.token); response(profile) }
+        f.repository.profile()
+        assertTrue(f.uploads.isEmpty())
+    }
+    @Test fun `image upload rejects malformed and foreign attachment URLs`() = runTest {
+        val f = Fixture(); f.connected()
+        val image = GitHubImage("x.webp", "image/webp", byteArrayOf(1))
+        for (url in listOf("https://evil.example/user-attachments/assets/id", "https://github.com.evil.example/user-attachments/assets/id", "https://github.com/user-attachments/assets/id?x=1", "https://github.com/user-attachments/assets/")) {
+            f.uploadHandler = { GitHubHttpResponse(201, """{"url":"$url"}""") }
+            try { f.repository.uploadImage(12, image); fail("Expected invalid URL rejection") }
+            catch (error: DevelopmentApiException) { assertEquals(502, error.status) }
+        }
     }
     @Test fun `missing configuration makes no requests and disconnect works offline`() = runTest {
         val f = Fixture(GitHubConfiguration("", "", ""))

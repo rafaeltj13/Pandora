@@ -46,8 +46,12 @@ fun SettingsScreen(
     onModuleChange: (Module, Boolean) -> Unit = { _, _ -> },
     tasks: TasksState = TasksState(),
     tasksActions: TasksActions = TasksActions(),
+    development: DevelopmentState = DevelopmentState(),
+    developmentActions: DevelopmentActions = DevelopmentActions(),
+    onOpenUrl: (String) -> Unit = {},
     onBack: () -> Unit = {},
 ) {
+    var configuringUpload by remember { mutableStateOf(false) }
     var choosingCalendar by remember { mutableStateOf(false) }
     var choosingShown by remember { mutableStateOf(false) }
     val tasksOn = Module.TASKS in modules
@@ -91,12 +95,16 @@ fun SettingsScreen(
         PandoraSection(stringResource(R.string.settings_development)) {
             ModuleSwitch(Module.DEVELOPMENT, Module.DEVELOPMENT in modules, onModuleChange, R.string.settings_development,
                 R.string.module_development_description, R.drawable.ic_development)
+            if (Module.DEVELOPMENT in modules) PandoraListItem("Attachment token",
+                supporting = if (development.uploadTokenConfigured) "Saved on this device" else "Optional, for image uploads",
+                onClick = { configuringUpload = true }, modifier = Modifier.testTag("settings_attachment_token"))
         }
         PandoraSection(stringResource(R.string.about_title)) {
             PandoraListItem(stringResource(R.string.app_name),
                 supporting = stringResource(R.string.version, BuildConfig.VERSION_NAME), icon = R.drawable.ic_info)
         }
     }
+    if (configuringUpload) GitHubUploadTokenDialog(development, developmentActions, onOpenUrl) { configuringUpload = false }
     if (choosingCalendar) {
         CalendarPicker(tasks.taskCalendars, tasks.defaultCalendarId, onDismiss = { choosingCalendar = false },
             onSelect = { tasksActions.setDefaultCalendar(it); choosingCalendar = false })

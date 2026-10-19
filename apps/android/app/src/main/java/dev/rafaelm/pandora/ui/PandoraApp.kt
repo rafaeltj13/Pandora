@@ -149,7 +149,8 @@ fun PandoraApp(
                 }
                 composable<PandoraRoute.Settings> {
                     SettingsScreen(appearance, onAppearance = { navController.navigate(PandoraRoute.Appearance) },
-                        modules = modules, onModuleChange = onModuleChange, tasks = tasks, tasksActions = tasksActions, onBack = { navController.popBackStack() })
+                        modules = modules, onModuleChange = onModuleChange, tasks = tasks, tasksActions = tasksActions,
+                        development = development, developmentActions = developmentActions, onOpenUrl = uriHandler::openUri, onBack = { navController.popBackStack() })
                 }
                 composable<PandoraRoute.Appearance> {
                     AppearanceScreen(appearance, onThemeModeChange, onThemeChange, onBothThemesChange,

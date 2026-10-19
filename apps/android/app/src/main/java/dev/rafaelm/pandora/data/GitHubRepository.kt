@@ -28,11 +28,40 @@ data class GitHubConfiguration(val clientId: String, val appSlug: String, val lo
 internal data class GitHubHttpResponse(val status: Int, val body: String, val hasNext: Boolean = false)
 internal fun interface GitHubTransport {
     suspend fun request(url: String, method: String, body: String?, token: String?): GitHubHttpResponse
+    suspend fun upload(repo: Long, image: GitHubImage, token: String?): GitHubHttpResponse =
+        throw UnsupportedOperationException("Image uploads are not supported by this transport")
 }
 
 internal class HttpGitHubTransport(
     private val openConnection: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection },
 ) : GitHubTransport {
+    // Matches GitHub CLI internal/attachments/client.go; GitHub decides which App user tokens can upload.
+    override suspend fun upload(repo: Long, image: GitHubImage, token: String?): GitHubHttpResponse = withContext(Dispatchers.IO) {
+        require(repo > 0) { "Invalid repository id" }
+        image.validate()
+        val query = "name=${URLEncoder.encode(image.name, "UTF-8")}&content_type=${URLEncoder.encode(image.contentType, "UTF-8")}&repository_id=$repo"
+        val connection = openConnection(URL("https://uploads.github.com/user-attachments/assets?$query"))
+        try {
+            connection.requestMethod = "POST"
+            connection.instanceFollowRedirects = false
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 20_000
+            connection.doOutput = true
+            connection.setRequestProperty("Accept", "application/vnd.github+json")
+            connection.setRequestProperty("Content-Type", "application/octet-stream")
+            connection.setRequestProperty("User-Agent", "Pandora-Android")
+            connection.setRequestProperty("X-GitHub-Api-Version", "2026-03-10")
+            // The attachment endpoint rejects Bearer authentication with a misleading 404.
+            token?.let { connection.setRequestProperty("Authorization", "token $it") }
+            connection.setFixedLengthStreamingMode(image.bytes.size)
+            connection.outputStream.use { it.write(image.bytes) }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            GitHubHttpResponse(status, text)
+        } finally { connection.disconnect() }
+    }
+
     override suspend fun request(url: String, method: String, body: String?, token: String?): GitHubHttpResponse = withContext(Dispatchers.IO) {
         val uri = URI(url)
         require(uri.scheme == "https" && uri.host in setOf("github.com", "api.github.com") && uri.userInfo == null) { "GitHub requests must use its HTTPS endpoints" }
@@ -107,6 +136,17 @@ class DirectGitHubRepository internal constructor(
         storage.credentials()?.takeIf { it.clientId == configuration.clientId && it.login.equals(configuration.login, ignoreCase = true) }
     }
     override fun hasSession() = isConfigured() && stored() != null
+    private fun storedUploadToken(): GitHubUploadToken? = synchronized(sessionLock) {
+        storage.uploadToken()?.takeIf { it.clientId == configuration.clientId && it.login.equals(configuration.login, ignoreCase = true) }
+    }
+    override fun hasUploadToken() = isConfigured() && hasSession() && storedUploadToken() != null
+    override fun setUploadToken(token: String) = synchronized(sessionLock) {
+        val normalized = token.trim()
+        require(normalized.matches(Regex("github_pat_[A-Za-z0-9_]+"))) { "Enter a valid fine-grained GitHub token." }
+        if (!isConfigured() || stored() == null) throw DevelopmentApiException(401, "Connect your GitHub account before adding an attachment token.")
+        storage.saveUploadToken(GitHubUploadToken(normalized, configuration.clientId, configuration.login))
+    }
+    override fun clearUploadToken() = synchronized(sessionLock) { storage.saveUploadToken(null) }
     override fun isPending() = pending != null
     override fun pendingAuthorization() = pending?.authorization
     override fun clearSession() = synchronized(sessionLock) {
@@ -293,4 +333,41 @@ class DirectGitHubRepository internal constructor(
             throw DevelopmentApiException(504, "Creation could not be confirmed. Check the repository on GitHub before retrying to avoid duplicates.")
         }
     }
+
+    override suspend fun uploadImage(repo: Long, image: GitHubImage): String {
+        if (repo <= 0) throw DevelopmentApiException(422, "Choose a valid repository before uploading an image.")
+        try { image.validate() } catch (error: IllegalArgumentException) {
+            throw DevelopmentApiException(422, error.message ?: "Choose a valid image.")
+        }
+        val uploadToken = storedUploadToken()?.token
+            ?: throw DevelopmentApiException(401, "Add an attachment token in Development settings before uploading images.")
+        val response = try {
+            transport.upload(repo, image, uploadToken)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: DevelopmentApiException) {
+            throw error
+        } catch (_: Exception) {
+            throw DevelopmentApiException(502, "GitHub could not upload the image. Check repository access and try again.")
+        }
+        if (response.status !in 200..299) {
+            val message = when (response.status) {
+                401 -> "Your attachment token was rejected or expired. Replace it in Development settings."
+                403, 404 -> "The attachment token cannot access this repository. Check selected repositories and enable Issues read and write access for the token."
+                413, 422 -> "GitHub rejected the image. Choose a supported image under 10 MB."
+                429 -> "GitHub rate limited the image upload. Try again later."
+                else -> "GitHub could not upload the image. Check your connection and try again."
+            }
+            throw DevelopmentApiException(response.status, message)
+        }
+        val assetUrl = try { json.decodeFromString<UploadedAssetResponse>(response.body).url } catch (_: Exception) { null }
+        val uri = try { assetUrl?.let(::URI) } catch (_: Exception) { null }
+        if (uri == null || uri.scheme != "https" || uri.host != "github.com" || uri.port != -1 || uri.userInfo != null || uri.query != null || uri.fragment != null ||
+            !uri.path.matches(Regex("/user-attachments/assets/[A-Za-z0-9-]+"))) {
+            throw DevelopmentApiException(502, "GitHub returned an invalid image URL.")
+        }
+        return uri.toASCIIString()
+    }
 }
+
+@Serializable private data class UploadedAssetResponse(val url: String)

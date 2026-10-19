@@ -14,6 +14,19 @@ data class GitHubIssueOptions(val labels: List<GitHubLabel>, val assignees: List
 data class GitHubRepositories(val repositories: List<GitHubRepository>, val installation_url: String)
 data class GitHubAuthorization(val userCode: String, val verificationUrl: String, val expiresAt: Long)
 
+data class GitHubImage(val name: String, val contentType: String, val bytes: ByteArray) {
+    fun validate() {
+        require(name.isNotBlank() && name.none { it == '/' || it == '\\' || it == '\u0000' }) { "Choose a valid image file name." }
+        require(contentType in SUPPORTED_CONTENT_TYPES) { "Choose a PNG, JPEG, GIF or WebP image." }
+        require(bytes.isNotEmpty() && bytes.size <= MAX_BYTES) { "Images must be between 1 byte and 10 MB." }
+    }
+
+    companion object {
+        const val MAX_BYTES = 10 * 1024 * 1024
+        val SUPPORTED_CONTENT_TYPES = setOf("image/png", "image/jpeg", "image/gif", "image/webp")
+    }
+}
+
 class DevelopmentApiException(val status: Int, override val message: String) : IOException(message)
 
 interface DevelopmentRepository {
@@ -28,6 +41,10 @@ interface DevelopmentRepository {
     suspend fun issues(repo: String, page: Int = 1): GitHubIssuePage
     suspend fun options(repo: String): GitHubIssueOptions
     suspend fun create(repo: String, issue: NewGitHubIssue): GitHubIssue
+    suspend fun uploadImage(repo: Long, image: GitHubImage): String = throw UnsupportedOperationException("Image uploads are not supported")
+    fun hasUploadToken(): Boolean = false
+    fun setUploadToken(token: String) { throw UnsupportedOperationException("Attachment tokens are not supported") }
+    fun clearUploadToken() = Unit
     suspend fun disconnect()
     fun clearSession()
     fun selectedRepositories(login: String): Set<String>
@@ -50,4 +67,11 @@ interface GitHubCredentialStore {
     fun clear()
     fun selected(login: String): Set<String>
     fun select(login: String, names: Set<String>)
+    fun uploadToken(): GitHubUploadToken? = null
+    fun saveUploadToken(token: GitHubUploadToken?) { throw UnsupportedOperationException("Attachment tokens are not supported") }
+}
+
+@Serializable
+data class GitHubUploadToken(val token: String, val clientId: String, val login: String) {
+    override fun toString() = "GitHubUploadToken(token=[redacted], clientId=$clientId, login=$login)"
 }

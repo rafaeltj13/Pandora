@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.rafaelm.pandora.data.AndroidIssueImages
 import dev.rafaelm.pandora.data.DirectGitHubRepository
 import dev.rafaelm.pandora.data.GitHubConfiguration
 import dev.rafaelm.pandora.data.DevelopmentStorage
@@ -41,6 +42,8 @@ class MainActivity : ComponentActivity() {
 
     private val tasksRepository by lazy { TasksRepository(AndroidCalendar(applicationContext), TaskStorage(applicationContext)) }
 
+    private val issueImages by lazy { AndroidIssueImages(contentResolver) }
+
     private val developmentRepository by lazy { DirectGitHubRepository(
         GitHubConfiguration(BuildConfig.GITHUB_CLIENT_ID, BuildConfig.GITHUB_APP_SLUG, BuildConfig.GITHUB_LOGIN),
         DevelopmentStorage(applicationContext),
@@ -66,7 +69,7 @@ class MainActivity : ComponentActivity() {
                     window.setBackgroundDrawable(backgroundColor.toDrawable())
                 }
                 val modules by modulesRepository.enabled.collectAsStateWithLifecycle()
-                val developmentModel: DevelopmentViewModel = viewModel(factory = DevelopmentViewModel.Factory(developmentRepository))
+                val developmentModel: DevelopmentViewModel = viewModel(factory = DevelopmentViewModel.Factory(developmentRepository, issueImages::read))
                 val developmentState by developmentModel.state.collectAsStateWithLifecycle()
                 val tasksModel: TasksViewModel = viewModel(factory = TasksViewModel.Factory(tasksRepository))
                 val tasksState by tasksModel.state.collectAsStateWithLifecycle()

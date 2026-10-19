@@ -214,7 +214,48 @@ repositories and repositories with issues disabled are excluded.
 Each repository shows open issues from all authors, newest first, ten at a
 time with **Load more**. Pull requests are excluded. Tap an issue to open
 GitHub, or **New issue** to enter a title, optional description, and optional
-labels and assignees loaded from that repository.
+labels and assignees loaded from that repository. **Add image** opens Android's
+photo picker. PNG, JPEG, GIF and WebP images up to 10 MB upload directly to
+GitHub and appear as thumbnails. Remove a thumbnail to leave it out of the
+issue. Images upload when selected; removing them or discarding the form does
+not delete the uploaded asset from GitHub. Submission waits for uploads, and
+retrying issue creation reuses successful uploads. Thumbnails use the selected
+local image while the form is open. The Create issue action stays below the
+scrolling form and above the keyboard. Labels and assignees have separate
+headlines and selection summaries.
+
+The Development dashboard keeps account actions behind the account row and
+repository selection beside the repository heading. Creation feedback can be
+dismissed without leaving the dashboard.
+
+Uploads use the same endpoint as [GitHub CLI attachments](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli).
+They require write access to the repository and a supported credential. GitHub
+[restricts App-token uploads to privileged first-party Apps](https://github.com/cli/cli/issues/14495#issuecomment-6159411769).
+Pandora uses a separate, optional fine-grained personal access token for uploads.
+The GitHub App connection still handles sign-in, repositories and issue creation.
+Rejected uploads keep the draft.
+
+To enable gallery uploads:
+
+1. Connect GitHub, then open **Settings → Development → Attachment token**, or
+   tap **Set up image uploads** in the issue form.
+2. Tap **Create token on GitHub**. Choose your account as resource owner and
+   **Only select repositories**. Select the repositories where you need images.
+3. Give **Issues: Read and write** access and set an expiration date. The setup
+   link pre-fills Issues write access and a 30-day lifetime.
+4. Generate the token, copy it, return to Pandora and paste it into the masked
+   field. Tap **Save token**, then **Done**. Saving stores the token locally;
+   GitHub checks its access on the next upload.
+
+Once a token is saved, the dialog shows **Token saved**. Choose **Replace token**
+to enter another one, or **Remove token** to delete it from the device.
+
+The attachment token is encrypted with Android Keystore, bound to the configured
+GitHub account and client ID, and sent only to GitHub's upload endpoint. It is
+never used for other API calls. Token entry is excluded from saved instance state
+and screenshots. **Remove token** removes it from the device without disconnecting
+the GitHub App or revoking it on GitHub. Disconnecting GitHub removes both saved
+credentials. Replace an expired token through the same setting.
 
 Leaving the form immediately discards its contents. No drafts, issue caches,
 offline queue, or automatic submission retries are saved. Failed submissions

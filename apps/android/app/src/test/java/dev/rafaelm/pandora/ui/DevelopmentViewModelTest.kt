@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
+import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -17,6 +18,19 @@ class DevelopmentViewModelTest {
     private val repo = GitHubRepository(1, "pandora", "owner/pandora", true, "https://github.com/owner/pandora", GitHubOwner("owner"), true, false)
     private val issue = GitHubIssue(9, "Bug", "https://github.com/owner/pandora/issues/9")
     private inner class Fake : DevelopmentRepository {
+        var attachmentConfigured = true
+        override fun hasUploadToken() = attachmentConfigured
+        override fun setUploadToken(token: String) {
+            require(token.startsWith("github_pat_"))
+            attachmentConfigured = true
+        }
+        override fun clearUploadToken() { attachmentConfigured = false }
+        var uploadResult: CompletableDeferred<String>? = null
+        var uploadError: Exception? = null
+        var uploads = 0
+        override suspend fun uploadImage(repo: Long, image: GitHubImage): String {
+            uploads++; uploadError?.let { throw it }; return uploadResult?.await() ?: "https://github.com/user-attachments/assets/image"
+        }
         var session = true
         var pending = false
         var approved = false
@@ -125,4 +139,82 @@ class DevelopmentViewModelTest {
         model.closeEditor(); model.newIssue(repo); assertNull(model.state.value.editor)
         response.complete(issue); advanceUntilIdle(); assertEquals(issue, model.state.value.created)
     }
+    @Test fun `upload blocks submission then includes image Markdown without reupload on retry`() = runTest {
+        val upload = CompletableDeferred<String>()
+        val fake = Fake().apply { uploadResult = upload; submissionError = IOException("Offline") }
+        val model = DevelopmentViewModel(fake) { GitHubImage("screen[1].png", "image/png", byteArrayOf(1)) }
+        model.newIssue(repo); advanceUntilIdle(); model.edit(title = "Bug", body = "Steps")
+        model.addImage("content://image"); runCurrent()
+        model.submit(); assertEquals(0, fake.submissions)
+        assertTrue(model.state.value.editor!!.uploadingImage)
+        upload.complete("https://github.com/user-attachments/assets/image"); advanceUntilIdle()
+        assertEquals("content://image", model.state.value.editor!!.images.single().previewUri)
+        model.submit(); advanceUntilIdle(); model.submit(); advanceUntilIdle()
+        assertEquals(1, fake.uploads)
+        assertEquals("Steps\n\n![screen\\[1\\].png](https://github.com/user-attachments/assets/image)", fake.submitted!!.body)
+        model.removeImage("https://github.com/user-attachments/assets/image")
+        assertTrue(model.state.value.editor!!.images.isEmpty())
+    }
+    @Test fun `image upload failure preserves draft and permits retry`() = runTest {
+        val fake = Fake().apply { uploadError = IOException("Upload denied") }
+        val model = DevelopmentViewModel(fake) { GitHubImage("screen.png", "image/png", byteArrayOf(1)) }
+        model.newIssue(repo); advanceUntilIdle(); model.edit(body = "Keep this")
+        model.addImage("content://image"); advanceUntilIdle()
+        assertEquals("Keep this", model.state.value.editor!!.body)
+        assertEquals("Upload denied", model.state.value.editor!!.imageError)
+        assertFalse(model.state.value.editor!!.uploadingImage)
+        fake.uploadError = null; model.addImage("content://image"); advanceUntilIdle()
+        assertEquals(1, model.state.value.editor!!.images.size)
+        assertNull(model.state.value.editor!!.imageError)
+    }
+    @Test fun `discarding an uploading form cannot attach to a later form`() = runTest {
+        val upload = CompletableDeferred<String>(); val fake = Fake().apply { uploadResult = upload }
+        val model = DevelopmentViewModel(fake) { GitHubImage("screen.png", "image/png", byteArrayOf(1)) }
+        model.newIssue(repo); advanceUntilIdle(); model.addImage("content://image"); runCurrent()
+        model.closeEditor(); model.newIssue(repo); runCurrent()
+        upload.complete("https://github.com/user-attachments/assets/image"); advanceUntilIdle()
+        assertTrue(model.state.value.editor!!.images.isEmpty())
+        assertFalse(model.state.value.editor!!.uploadingImage)
+    }
+
+    @Test fun `saving and removing an attachment token updates presence without exposing the secret`() = runTest {
+        val fake = Fake().apply { attachmentConfigured = false }
+        val model = DevelopmentViewModel(fake)
+        assertFalse(model.state.value.uploadTokenConfigured)
+        model.setUploadToken("github_pat_example")
+        val saved = model.state.first { !it.uploadTokenSaving }
+        assertTrue(saved.uploadTokenConfigured)
+        assertFalse(saved.toString().contains("github_pat_example"))
+        model.clearUploadToken()
+        val removed = model.state.first { !it.uploadTokenSaving }
+        assertFalse(removed.uploadTokenConfigured)
+        assertTrue(fake.session)
+    }
+    @Test fun `invalid attachment token keeps the existing token and reports a safe error`() = runTest {
+        val model = DevelopmentViewModel(Fake())
+        model.setUploadToken("secret-that-is-not-a-pat")
+        val state = model.state.first { !it.uploadTokenSaving }
+        assertTrue(state.uploadTokenConfigured)
+        assertTrue(state.uploadTokenError!!.contains("fine-grained"))
+        assertFalse(state.toString().contains("secret-that-is-not-a-pat"))
+    }
+    @Test fun `missing attachment token blocks image reading and preserves the issue draft`() = runTest {
+        val fake = Fake().apply { attachmentConfigured = false }
+        val model = DevelopmentViewModel(fake) { error("Must not read image") }
+        model.newIssue(repo); advanceUntilIdle(); model.edit(title = "Keep this")
+        model.addImage("content://image"); advanceUntilIdle()
+        assertEquals(0, fake.uploads)
+        assertEquals("Keep this", model.state.value.editor!!.title)
+        assertTrue(model.state.value.editor!!.imageError!!.contains("attachment token"))
+    }
+    @Test fun `expired attachment token leaves the GitHub App session and draft intact`() = runTest {
+        val fake = Fake().apply { uploadError = DevelopmentApiException(401, "Attachment token expired") }
+        val model = DevelopmentViewModel(fake) { GitHubImage("screen.png", "image/png", byteArrayOf(1)) }
+        model.newIssue(repo); advanceUntilIdle(); model.edit(title = "Keep this")
+        model.addImage("content://image"); advanceUntilIdle()
+        assertTrue(fake.session)
+        assertEquals("Keep this", model.state.value.editor!!.title)
+        assertEquals("Attachment token expired", model.state.value.editor!!.imageError)
+    }
+
 }

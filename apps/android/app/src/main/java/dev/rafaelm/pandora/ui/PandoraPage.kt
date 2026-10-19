@@ -61,10 +61,12 @@ internal fun PandoraScaffold(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     onOpenSettings: (() -> Unit)? = null,
+    bottomBar: @Composable () -> Unit = {},
     content: @Composable (bottom: Dp) -> Unit,
 ) {
     Scaffold(
         modifier = modifier,
+        bottomBar = bottomBar,
         topBar = {
             TopAppBar(title = { Text(title) }, navigationIcon = navigationIcon, expandedHeight = TopBarHeight, actions = {
                 actions()
