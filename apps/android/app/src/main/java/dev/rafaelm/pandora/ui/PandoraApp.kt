@@ -5,7 +5,12 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -41,8 +46,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalUriHandler
@@ -248,20 +253,38 @@ private fun PandoraDock(
 /** The selected tab grows into a primary-container pill with its icon; the others show only their label. */
 @Composable
 private fun DockTab(destination: Destination, selected: Boolean, onClick: () -> Unit) {
+    // Icon, width, and colors share one quick spring so the old tab shrinks while the new one grows.
+    val container by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0f),
+        spring(stiffness = Spring.StiffnessMedium), label = "dockTabContainer",
+    )
+    val content by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        spring(stiffness = Spring.StiffnessMedium), label = "dockTabContent",
+    )
     Surface(
         shape = CircleShape,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-        contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = container,
+        contentColor = content,
         modifier = Modifier.fillMaxHeight().clip(CircleShape)
             .selectable(selected, role = Role.Tab, onClick = onClick).testTag(destination.tag),
     ) {
         Row(
-            Modifier.animateContentSize().padding(horizontal = PandoraSpacing.medium),
-            horizontalArrangement = Arrangement.spacedBy(PandoraSpacing.small),
+            Modifier.padding(horizontal = PandoraSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (selected) Icon(painterResource(destination.icon), contentDescription = null)
+            AnimatedVisibility(
+                selected,
+                enter = expandHorizontally(DockTabSize) + fadeIn(DockTabFade),
+                exit = shrinkHorizontally(DockTabSize) + fadeOut(DockTabFade),
+            ) {
+                Icon(painterResource(destination.icon), contentDescription = null,
+                    modifier = Modifier.padding(end = PandoraSpacing.small))
+            }
             Text(stringResource(destination.label), style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
     }
 }
+
+private val DockTabSize = spring(stiffness = Spring.StiffnessMedium, visibilityThreshold = IntSize.VisibilityThreshold)
+private val DockTabFade = spring<Float>(stiffness = Spring.StiffnessMedium)

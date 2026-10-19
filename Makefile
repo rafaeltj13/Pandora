@@ -33,4 +33,4 @@ build:
 check:
 	./scripts/android.sh :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 test-device:
-	@SERIAL=$$(./scripts/device.sh) && ANDROID_SERIAL="$$SERIAL" ./scripts/android.sh :app:connectedDebugAndroidTest
+	@SERIAL=$$(./scripts/device.sh) && ANDROID_SERIAL="$$SERIAL" ./scripts/android.sh :app:connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
