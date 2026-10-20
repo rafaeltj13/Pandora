@@ -18,8 +18,11 @@ import java.util.TimeZone
 
 val calendarPermissions = arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
 
-/** Marks an event as a Pandora task; extended properties travel with the event. */
+/** Legacy task tag, retained for compatibility with existing calendar events. */
 private const val TASK_TAG = "dev.rafaelm.pandora.task"
+// Calendar notes sync as part of the event; sync-adapter-owned extended properties may be replaced.
+private const val TASK_MARKER = "[Pandora task]"
+private const val TASK_SUFFIX = "\n\n$TASK_MARKER"
 
 /** Writes through the phone's calendar provider; Android syncs Google calendars to Google. */
 class AndroidCalendar(private val context: Context) : CalendarGateway {
@@ -47,9 +50,16 @@ class AndroidCalendar(private val context: Context) : CalendarGateway {
         }
     }.orEmpty().sortedWith(compareBy({ it.account }, { !it.main }))
 
-    override fun taskEventIds(): Set<Long> = resolver.query(
-        ExtendedProperties.CONTENT_URI, arrayOf(ExtendedProperties.EVENT_ID), "${ExtendedProperties.NAME} = ?", arrayOf(TASK_TAG), null,
-    )?.use { cursor -> buildSet { while (cursor.moveToNext()) add(cursor.getLong(0)) } }.orEmpty()
+    override fun taskEventIds(): Set<Long> {
+        val tagged = resolver.query(
+            ExtendedProperties.CONTENT_URI, arrayOf(ExtendedProperties.EVENT_ID), "${ExtendedProperties.NAME} = ?", arrayOf(TASK_TAG), null,
+        )?.use { cursor -> buildSet { while (cursor.moveToNext()) add(cursor.getLong(0)) } }.orEmpty()
+        val marked = resolver.query(Events.CONTENT_URI, arrayOf(Events._ID),
+            "(${Events.DESCRIPTION} = ? OR ${Events.DESCRIPTION} LIKE ?) AND ${Events.DELETED} = 0",
+            arrayOf(TASK_MARKER, "%$TASK_SUFFIX"), null,
+        )?.use { cursor -> buildSet { while (cursor.moveToNext()) add(cursor.getLong(0)) } }.orEmpty()
+        return tagged + marked
+    }
 
     override fun tasks(calendarIds: Set<Long>, after: Long): List<Task> {
         val ids = taskEventIds()
@@ -72,7 +82,7 @@ class AndroidCalendar(private val context: Context) : CalendarGateway {
             while (cursor.moveToNext()) {
                 val start = cursor.getLong(4)
                 val end = if (!cursor.isNull(5)) cursor.getLong(5) else start + duration(cursor.getString(6))
-                add(cursor.getLong(0) to CalendarEvent(cursor.getLong(1), cursor.getString(2).orEmpty(), cursor.getString(3).orEmpty(),
+                add(cursor.getLong(0) to CalendarEvent(cursor.getLong(1), cursor.getString(2).orEmpty(), cursor.getString(3).orEmpty().withoutTaskMarker(),
                     start, end, cursor.getInt(7) == 1, cursor.getString(8)?.takeIf { it.isNotBlank() }))
             }
         }
@@ -125,7 +135,7 @@ class AndroidCalendar(private val context: Context) : CalendarGateway {
         val event = event(id) ?: return
         // The provider only re-expands a repeat rule when DTSTART comes with it, as the stock Calendar app sends.
         resolver.update(ContentUris.withAppendedId(Events.CONTENT_URI, id),
-            ContentValues().apply { put(Events.DTSTART, event.start); put(Events.RRULE, rrule) }, null, null)
+            ContentValues().apply { put(Events.DTSTART, event.start); put(Events.RRULE, rrule); put(Events.DESCRIPTION, event.description) }, null, null)
         resolver.delete(Events.CONTENT_URI, "${Events.ORIGINAL_ID} = ? AND ${Events.ORIGINAL_INSTANCE_TIME} >= ?", arrayOf(id.toString(), from.toString()))
         resolver.delete(properties(event.calendarId), "${ExtendedProperties.EVENT_ID} = ? AND ${ExtendedProperties.NAME} = ?", arrayOf(id.toString(), TASK_TAG))
     }
@@ -152,7 +162,7 @@ class AndroidCalendar(private val context: Context) : CalendarGateway {
     /** Repeating events need a DURATION instead of DTEND. */
     private fun values(event: CalendarEvent) = ContentValues().apply {
         put(Events.TITLE, event.title)
-        put(Events.DESCRIPTION, event.description)
+        put(Events.DESCRIPTION, event.description.takeIf { it.isNotEmpty() }?.plus(TASK_SUFFIX) ?: TASK_MARKER)
         put(Events.DTSTART, event.start)
         put(Events.ALL_DAY, if (event.allDay) 1 else 0)
         put(Events.EVENT_TIMEZONE, if (event.allDay) "UTC" else TimeZone.getDefault().id)
@@ -163,6 +173,12 @@ class AndroidCalendar(private val context: Context) : CalendarGateway {
             putNull(Events.DTEND); put(Events.RRULE, event.rrule)
             put(Events.DURATION, if (event.allDay) "P${seconds / 86_400}D" else "P${seconds}S")
         }
+    }
+
+    private fun String.withoutTaskMarker() = when {
+        this == TASK_MARKER -> ""
+        endsWith(TASK_SUFFIX) -> removeSuffix(TASK_SUFFIX)
+        else -> this
     }
 
     /** RFC 5545 durations such as P3600S or P1D, used by events that have no end time. */

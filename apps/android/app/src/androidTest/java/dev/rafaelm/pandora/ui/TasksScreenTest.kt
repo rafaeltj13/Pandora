@@ -2,6 +2,8 @@ package dev.rafaelm.pandora.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -20,6 +22,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -35,6 +38,14 @@ class TasksScreenTest {
         TaskItem(Task(11, 2, "Call bank", "", today + 24 * hour, today + 25 * hour, false)),
     ))
     private val editor = TaskEditor(date = LocalDate.of(2026, 10, 10), time = LocalTime.of(13, 0), calendarId = 2)
+
+    @Test
+    fun tasksIsTheFirstAndDefaultFilter() {
+        compose.setContent { PandoraTheme { TasksScreen(loaded, TasksActions(), clock) } }
+        val tasks = compose.onNodeWithTag("filter_tasks").assertIsEnabled().assertIsSelected()
+        val everything = compose.onNodeWithTag("filter_everything")
+        assertTrue(tasks.fetchSemanticsNode().boundsInRoot.left < everything.fetchSemanticsNode().boundsInRoot.left)
+    }
 
     @Test
     fun tasksAreGroupedByDay() {
@@ -91,7 +102,7 @@ class TasksScreenTest {
         val weekly = loaded.tasks[0].copy(task = loaded.tasks[0].task.copy(rrule = "FREQ=WEEKLY;BYDAY=SA"))
         var opened: AgendaEvent? = null
         var showEvents: Boolean? = null
-        compose.setContent { PandoraTheme { TasksScreen(loaded.copy(tasks = listOf(weekly), events = listOf(standup)),
+        compose.setContent { PandoraTheme { TasksScreen(loaded.copy(tasks = listOf(weekly), events = listOf(standup), showEvents = true),
             TasksActions(openEvent = { opened = it }, setShowEvents = { showEvents = it }), clock) } }
         compose.onNodeWithText("🔁 Repeats weekly on Sat").assertIsDisplayed()
         compose.onNodeWithText("Standup").assertIsDisplayed()

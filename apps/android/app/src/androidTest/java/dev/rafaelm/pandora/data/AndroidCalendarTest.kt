@@ -6,6 +6,8 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.CalendarContract
 import android.provider.CalendarContract.Calendars
+import android.provider.CalendarContract.ExtendedProperties
+import android.provider.CalendarContract.Events
 import androidx.test.platform.app.InstrumentationRegistry
 import java.time.Instant
 import java.util.UUID
@@ -54,6 +56,33 @@ class AndroidCalendarTest {
         // Ended tasks are filtered by the provider's last occurrence date.
         assertTrue(calendar.tasks(setOf(calendarId), start + 2 * hour).isEmpty())
         assertTrue(calendar.calendars().any { it.id == calendarId && it.main && it.writable })
+    }
+
+    @Test fun legacyTaggedTasksRemainReadableAndOrdinaryEventsStayOut() {
+        val legacy = calendar.insert(CalendarEvent(calendarId, "Legacy task", "Original notes", start, start + hour, false))
+        // Older versions stored the task tag only in ExtendedProperties.
+        context.contentResolver.update(ContentUris.withAppendedId(Events.CONTENT_URI, legacy),
+            ContentValues().apply { put(Events.DESCRIPTION, "Original notes") }, null, null)
+        val ordinary = context.contentResolver.insert(Events.CONTENT_URI, ContentValues().apply {
+            put(Events.CALENDAR_ID, calendarId); put(Events.TITLE, "Ordinary event")
+            put(Events.DESCRIPTION, "Original notes"); put(Events.DTSTART, start); put(Events.DTEND, start + hour)
+            put(Events.EVENT_TIMEZONE, "UTC")
+        })!!
+        assertTrue(legacy in calendar.taskEventIds())
+        assertFalse(ContentUris.parseId(ordinary) in calendar.taskEventIds())
+        assertEquals("Original notes", calendar.tasks(setOf(calendarId), start - hour).single().description)
+    }
+
+    @Test fun tasksRemainDiscoverableWithoutSyncAdapterProperties() {
+        val id = calendar.insert(CalendarEvent(calendarId, "Dentist", "Bring the card", start, start + hour, false))
+        // A sync adapter owns this metadata and can replace it when refreshing an event.
+        context.contentResolver.delete(asSyncAdapter(ExtendedProperties.CONTENT_URI),
+            "${ExtendedProperties.EVENT_ID} = ?", arrayOf(id.toString()))
+        val reopened = AndroidCalendar(context)
+        assertTrue(id in reopened.taskEventIds())
+        assertEquals("Bring the card", reopened.tasks(setOf(calendarId), start - hour).single().description)
+        reopened.update(id, reopened.event(id)!!.copy(description = "Updated notes"))
+        assertEquals("Updated notes", reopened.tasks(setOf(calendarId), start - hour).single().description)
     }
 
     @Test fun repeatingTasksExpandAndCanEndBeforeAnOccurrence() {

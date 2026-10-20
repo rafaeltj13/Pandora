@@ -92,7 +92,7 @@ class TasksViewModelTest {
             AgendaEvent(2, null, "Holiday", 3, "Holidays", 0, Occurrence(today, today + day, true), true),
             AgendaEvent(3, null, "Standup", 3, "Holidays", 0, Occurrence(today + day + 9 * 3_600_000L, today + day + 10 * 3_600_000L, false), true),
         )
-        val state = model.state.value.copy(events = events)
+        val state = model.state.value.copy(events = events, showEvents = true)
         val clock = repository.clock
         assertEquals(listOf(listOf("Holiday", "Lunch", "Gym"), listOf("Standup")), state.days(clock).map { d -> d.entries.map { it.title } })
         assertEquals(listOf(listOf("Gym")), state.copy(showEvents = false).days(clock).map { d -> d.entries.map { it.title } })

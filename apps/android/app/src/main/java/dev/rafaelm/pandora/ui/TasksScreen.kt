@@ -165,10 +165,10 @@ private fun TaskList(state: TasksState, actions: TasksActions, clock: Clock, onO
                     } }
                 } else {
                     item { Row(horizontalArrangement = Arrangement.spacedBy(PandoraSpacing.small)) {
-                        FilterChip(selected = state.showEvents, onClick = { actions.setShowEvents(true) }, label = { Text("Everything") },
-                            modifier = Modifier.testTag("filter_everything"))
                         FilterChip(selected = !state.showEvents, onClick = { actions.setShowEvents(false) }, label = { Text("Tasks") },
                             modifier = Modifier.testTag("filter_tasks"))
+                        FilterChip(selected = state.showEvents, onClick = { actions.setShowEvents(true) }, label = { Text("Everything") },
+                            modifier = Modifier.testTag("filter_everything"))
                     } }
                     if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     val days = state.days(clock)

@@ -45,7 +45,7 @@ data class TasksState(
     val tasks: List<TaskItem> = emptyList(),
     val events: List<AgendaEvent> = emptyList(),
     val agendaDays: Int = AGENDA_DAYS,
-    val showEvents: Boolean = true,
+    val showEvents: Boolean = false,
     val editor: TaskEditor? = null,
     val busy: Boolean = false,
     val error: String? = null,

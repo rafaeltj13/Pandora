@@ -20,7 +20,7 @@ dock switches between Home and the modules turned on in Settings.
 | App page | Current behavior |
 | --- | --- |
 | Home | Shows the Pandora welcome card; points to Settings when every module is off. |
-| Tasks | Creates tasks (title, date, time and duration or all day, optional description, optional repeat) as tagged Google Calendar events, so they live in the calendar and survive reinstalls. Edits to repeating tasks apply from the next occurrence on. Also lists the next 14+ days of events from your Google calendars, read-only, with a Tasks/Everything filter. |
+| Tasks | Creates tasks (title, date, time and duration or all day, optional description, optional repeat) as tagged Google Calendar events, so they live in the calendar and survive reinstalls. New tasks include a `[Pandora task]` marker in calendar notes, which Pandora hides in its editor, to keep them recognizable if sync replaces extended properties. Edits to repeating tasks apply from the next occurrence on. Also lists the next 14+ days of events from your Google calendars, read-only, with Tasks selected by default before Everything. The selected filter is remembered. |
 | Development | Connects your GitHub account, groups open issues by selected personal repository, and creates issues with labels and assignees. |
 | Settings | Opens Appearance to choose System, Light, or Dark; chooses the default calendar for tasks and which calendars appear in Tasks; shows the app name/version. |
 

@@ -48,7 +48,7 @@ class FakeCalendar : CalendarGateway {
 class MemoryTaskStore : TaskStore {
     var default: Long? = null
     var hidden = setOf<Long>()
-    var eventsShown = true
+    var eventsShown = false
     override fun defaultCalendar() = default
     override fun setDefaultCalendar(id: Long) { default = id }
     override fun hiddenCalendars() = hidden

@@ -18,7 +18,7 @@ class TaskStorage(context: Context, name: String = "tasks") : TaskStore {
 
     override fun setHiddenCalendars(ids: Set<Long>) = preferences.edit { putStringSet("hidden_calendars", ids.map { it.toString() }.toSet()) }
 
-    override fun showEvents() = preferences.getBoolean("show_events", true)
+    override fun showEvents() = preferences.getBoolean("show_events", false)
 
     override fun setShowEvents(show: Boolean) = preferences.edit { putBoolean("show_events", show) }
 }
